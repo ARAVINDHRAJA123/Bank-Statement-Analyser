@@ -2,7 +2,7 @@ import pdfplumber
 import pandas as pd
 import re
 
-INPUT_FILE = "statement.pdf"
+INPUT_FILE = "Account Statement.pdf"
 OUTPUT_FILE = "Bank_Statement_Report.xlsx"
 
 
@@ -32,7 +32,6 @@ def extract_transactions(pdf_file):
             current = line
 
         else:
-
             if current:
                 current += " " + line
 
@@ -162,6 +161,20 @@ def stats_summary(df):
     })
 
 
+# 🔥 NEW FEATURE
+def top_merchants(df):
+
+    merchants = (
+        df.groupby("Merchant")["Debit"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(10)
+        .reset_index()
+    )
+
+    return merchants
+
+
 def autofit_excel(writer, df, sheet_name):
 
     worksheet = writer.sheets[sheet_name]
@@ -176,7 +189,7 @@ def autofit_excel(writer, df, sheet_name):
         worksheet.set_column(i, i, column_len)
 
 
-def export_excel(df, monthly, category, stats):
+def export_excel(df, monthly, category, stats, merchants):
 
     with pd.ExcelWriter(OUTPUT_FILE, engine="xlsxwriter") as writer:
 
@@ -184,39 +197,60 @@ def export_excel(df, monthly, category, stats):
         monthly.to_excel(writer, sheet_name="Monthly Summary", index=False)
         category.to_excel(writer, sheet_name="Category Breakdown", index=False)
         stats.to_excel(writer, sheet_name="Spending Stats", index=False)
+        merchants.to_excel(writer, sheet_name="Top Merchants", index=False)
 
         workbook = writer.book
 
         currency = workbook.add_format({"num_format": "₹#,##0.00"})
         date_format = workbook.add_format({"num_format": "dd/mm/yyyy"})
 
+        # Transactions formatting
         trans_sheet = writer.sheets["Transactions"]
-
         trans_sheet.set_column("A:A", 12, date_format)
         trans_sheet.set_column("F:F", 15, currency)
         trans_sheet.set_column("G:G", 15, currency)
 
+        # Autofit
         autofit_excel(writer, df, "Transactions")
         autofit_excel(writer, monthly, "Monthly Summary")
         autofit_excel(writer, category, "Category Breakdown")
         autofit_excel(writer, stats, "Spending Stats")
+        autofit_excel(writer, merchants, "Top Merchants")
 
+        # Category Pie Chart
         cat_sheet = writer.sheets["Category Breakdown"]
-
-        chart = workbook.add_chart({"type": "pie"})
+        pie_chart = workbook.add_chart({"type": "pie"})
 
         last_row = len(category) + 1
 
-        chart.add_series({
+        pie_chart.add_series({
             "name": "Spending Distribution",
             "categories": f"=Category Breakdown!A2:A{last_row}",
             "values": f"=Category Breakdown!B2:B{last_row}",
             "data_labels": {"percentage": True}
         })
 
-        chart.set_title({"name": "Spending Distribution"})
+        pie_chart.set_title({"name": "Spending Distribution"})
+        cat_sheet.insert_chart("D2", pie_chart)
 
-        cat_sheet.insert_chart("D2", chart)
+        # 🔥 Top Merchants Chart
+        merch_sheet = writer.sheets["Top Merchants"]
+        bar_chart = workbook.add_chart({"type": "column"})
+
+        last_row = len(merchants) + 1
+
+        bar_chart.add_series({
+            "name": "Top Merchants",
+            "categories": f"=Top Merchants!A2:A{last_row}",
+            "values": f"=Top Merchants!B2:B{last_row}",
+            "data_labels": {"value": True}
+        })
+
+        bar_chart.set_title({"name": "Top 10 Merchants"})
+        bar_chart.set_x_axis({"name": "Merchant"})
+        bar_chart.set_y_axis({"name": "Total Spend"})
+
+        merch_sheet.insert_chart("D2", bar_chart)
 
 
 def main():
@@ -242,10 +276,11 @@ def main():
     monthly = monthly_summary(df)
     category = category_summary(df)
     stats = stats_summary(df)
+    merchants = top_merchants(df)
 
     print("Generating Excel report...")
 
-    export_excel(df, monthly, category, stats)
+    export_excel(df, monthly, category, stats, merchants)
 
     print("Done! Output saved as:", OUTPUT_FILE)
 
