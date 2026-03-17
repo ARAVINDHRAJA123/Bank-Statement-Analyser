@@ -1,48 +1,82 @@
 
-Bank Statement Automation
+# Bank Statement Analyzer
 
-This project converts bank statement PDFs into a clean Excel report for easier expense analysis.
+A Python automation tool that converts multi‑page bank statement PDFs into structured Excel reports with analytics.
 
-The script reads transaction tables from each page of the PDF, merges them into a single dataset,
-cleans the data, categorizes expenses, and exports the results into an Excel file.
+## Features
 
-Tools Used
-- Python
-- pdfplumber
-- pandas
-- openpyxl
+- Extracts transactions from bank statement PDFs
+- Automatically reconstructs multi‑line narration rows
+- Detects merchant names from narration
+- Categorizes spending ranges
+- Generates structured Excel reports
+- Auto‑formatted Excel output (date + currency)
+- Auto‑fit column widths
+- Generates spending analytics charts
 
-How It Works
+## Output Sheets
 
-1. The script reads all pages of a bank statement PDF.
-2. Transaction tables are extracted from each page.
-3. The rows are combined into a single dataset.
-4. Missing dates caused by broken rows are fixed.
-5. Debit and credit values are converted into numeric format.
-6. Expenses are categorized into spending brackets.
-7. The final result is exported to an Excel spreadsheet.
+1. **Transactions**
+   - Date
+   - Merchant
+   - Narration
+   - Reference
+   - Value Date
+   - Debit
+   - Balance
+   - Category
 
-Running the Script
+2. **Monthly Summary**
+   - Total spending per month
 
-1. Install required libraries:
+3. **Category Breakdown**
+   - Spending distribution by amount bucket
 
+4. **Spending Stats**
+   - Total spending
+   - Average transaction
+   - Largest transaction
+
+## Installation
+
+Install required packages:
+
+```
 pip install -r requirements.txt
+```
 
-2. Place your bank statement PDF in the same folder.
+## Usage
 
-3. Update the filename inside the script if needed:
+Place your bank statement PDF in the project folder.
 
-FILENAME = "statement.pdf"
+Update the filename in the script if needed:
 
-4. Run the script:
+```
+INPUT_FILE = "statement.pdf"
+```
 
-python bank_statement_automation.py
+Run:
 
-Output
+```
+python bank_statement_analyzer.py
+```
 
-The script generates:
+Output file:
 
-Organized_Expenses.xlsx
+```
+Bank_Statement_Report.xlsx
+```
 
-The output file contains all transactions along with categorized expense brackets,
-sorted by highest spending first.
+## Tech Stack
+
+- Python
+- pandas
+- pdfplumber
+- xlsxwriter
+
+## Future Improvements
+
+- Merchant spending dashboard
+- Automatic merchant grouping
+- Multi‑bank format detection
+- Expense category classification
