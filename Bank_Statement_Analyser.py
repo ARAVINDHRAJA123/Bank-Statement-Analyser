@@ -13,8 +13,10 @@ from openpyxl.utils import get_column_letter
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-INPUT_PDF   = "Account Statement.pdf"
-OUTPUT_XLSX = "Bank_Statement_Report.xlsx"
+import sys
+
+INPUT_PDF   = sys.argv[1] if len(sys.argv) > 1 else "Account Statement.pdf"
+OUTPUT_XLSX = sys.argv[2] if len(sys.argv) > 2 else "Bank_Statement_Report.xlsx"
 ANOMALY_Z   = 2.0
 
 # Column x-boundaries discovered from HDFC PDF structure.
@@ -563,6 +565,7 @@ def export_excel(rows, monthly, cats, merchants, anomalies, stats, path):
 
 def main():
     import os
+    import json
     pdf = INPUT_PDF
     if not os.path.exists(pdf):
         print(f"ERROR: '{pdf}' not found. Place your HDFC PDF here.")
@@ -593,6 +596,20 @@ def main():
 
     print(f"[4/4] Writing {OUTPUT_XLSX}…")
     export_excel(rows, monthly, cats, merchants, anomalies, stats, OUTPUT_XLSX)
+
+    # Write stats for n8n
+    if len(sys.argv) > 3:
+        stats_path = sys.argv[3]
+        top_cat = cats[0]["category"] if cats else "N/A"
+        with open(stats_path, "w") as f:
+            json.dump({
+                "total_spend":   round(stats["total_spend"], 2),
+                "total_income":  round(stats["total_income"], 2),
+                "net_cash_flow": round(stats["net_cash_flow"], 2),
+                "transactions":  stats["txn_count"],
+                "anomalies":     len(anomalies),
+                "top_category":  top_cat
+            }, f)
 
     print(f"\n✅  Done! Open '{OUTPUT_XLSX}'")
     print(f"    Transactions  : {stats['txn_count']}")
