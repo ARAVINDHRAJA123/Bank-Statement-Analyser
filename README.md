@@ -28,6 +28,10 @@ Google Drive (Bank Statement Reports/Output_DD-MM-YYYY/)
 Telegram + Email — summary with spend, category, anomalies
 ```
 
+### n8n Automation Workflow
+
+<img width="1914" height="913" alt="Image" src="https://github.com/user-attachments/assets/dea835ed-9783-40a0-8a54-6fa42f0aa7a1" />
+
 ### Automation Setup
 
 **1. Install dependencies:**
