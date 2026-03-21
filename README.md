@@ -1,17 +1,71 @@
-# 💳 Bank Statement Analyser
+# 💳 Bank Statement Analyser — with Automation
 
-A Python tool that converts HDFC bank statement PDFs into a structured Excel report — with smart spending categories, anomaly detection, income vs expense charts, and merchant analysis. No API key or external tools needed.
+A Python tool that converts HDFC bank statement PDFs into structured Excel
+reports, with an optional n8n automation pipeline that watches Google Drive,
+runs the analyser automatically, uploads the report, and sends a summary
+via Telegram and Email.
 
 ---
 
-## 🚀 Quick Start
+## 🤖 Automation Pipeline (n8n)
 
+Upload a PDF to Google Drive → n8n detects it → Flask server runs the
+analyser → Excel report uploaded to a dated output folder → Telegram and
+Email summary sent automatically.
+```
+Google Drive (Bank Statements folder)
+        │
+        ▼
+n8n — Google Drive Trigger
+        │
+        ▼
+Flask server (server.py) — runs bank_statement_analyser.py
+        │
+        ▼
+Google Drive (Bank Statement Reports/Output_DD-MM-YYYY/)
+        │
+        ▼
+Telegram + Email — summary with spend, category, anomalies
+```
+
+### Automation Setup
+
+**1. Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+**2. Start the Flask server:**
+```bash
+python server.py
+```
+
+**3. Import the workflow into n8n:**
+```bash
+npm install -g n8n
+n8n start
+```
+Open `http://localhost:5678` → import `workflow_automation.json`
+
+**4. Configure credentials in n8n:**
+- Google Drive OAuth2 — your personal Google account
+- Telegram — Bot Token and Chat ID
+- Email (SMTP) — Gmail App Password
+
+**5. Create these folders in Google Drive:**
+- `Bank Statements` — upload PDFs here
+- `Bank Statement Reports` — Excel reports saved here automatically
+
+**6. Publish the workflow in n8n**
+
+---
+
+## 🚀 Quick Start (Script only — no automation)
 ```bash
 pip install -r requirements.txt
 ```
 
 Rename your HDFC PDF to `Account Statement.pdf` and place it in the same folder, then:
-
 ```bash
 python bank_statement_analyser.py
 ```
@@ -23,17 +77,20 @@ Open `Bank_Statement_Report.xlsx` to see your report.
 ## 📦 Requirements
 
 - Python 3.10 or higher
+- Node.js 18 or higher (for n8n automation only)
 - See `requirements.txt`
-
 ```
 pdfplumber>=0.11.0
 openpyxl>=3.1.0
+flask>=3.0.0
+google-auth>=2.0.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.0.0
 ```
 
 ---
 
 ## ⚙️ How It Works
-
 ```
 Account Statement.pdf
         │
@@ -93,7 +150,6 @@ Transactions that are statistically much larger than your usual spend, with a pl
 ## 🛠 Configuration
 
 All settings are at the top of the script:
-
 ```python
 INPUT_PDF   = "Account Statement.pdf"   # your PDF filename
 OUTPUT_XLSX = "Bank_Statement_Report.xlsx"
@@ -101,7 +157,6 @@ ANOMALY_Z   = 2.0   # sensitivity — lower = more flags, higher = fewer
 ```
 
 To add or edit spending categories, update `CATEGORY_KEYWORDS`:
-
 ```python
 CATEGORY_KEYWORDS = {
     "Food & Dining": ["swiggy", "zomato", "your_restaurant", ...],
@@ -122,15 +177,19 @@ For other banks (SBI, ICICI, Axis), the `HDFC_COLS` coordinate boundaries at the
 ---
 
 ## 📁 Project Structure
-
 ```
-Bank-Statement-Automation/
-├── bank_statement_analyser.py   ← main script
-├── Account Statement.pdf             ← your input PDF (rename to this)
-├── Bank_Statement_Report.xlsx        ← generated output
+Bank-Statement-Analyser/
+├── bank_statement_analyser.py    ← main script
+├── server.py                     ← Flask server for n8n automation
+├── workflow_automation.json      ← n8n workflow (import this)
 ├── requirements.txt
-└── README.md
+├── .gitignore
+├── README.md
+└── assets/
+    └── workflow.png              ← n8n canvas screenshot
 ```
+
+---
 
 ## 📷 Sample Output
 
