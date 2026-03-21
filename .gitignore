@@ -1,0 +1,15 @@
+# Sensitive files
+service_account.json
+
+# Generated output files
+*.xlsx
+*.pdf
+Bank_Statement_Report_output.xlsx
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# n8n local data
+.n8n/
