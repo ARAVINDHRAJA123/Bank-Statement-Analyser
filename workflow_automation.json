@@ -64,6 +64,15 @@
     {
       "parameters": {
         "url": "http://127.0.0.1:5050/download",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $('HTTP Request POST').item.json.report_file }}"
+            }
+          ]
+        },
         "options": {
           "response": {
             "response": {
@@ -283,9 +292,10 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "availableInMCP": true
   },
-  "versionId": "a5e97a81-17c8-45e8-8395-d34ca981c2b9",
+  "versionId": "bd781703-08c0-4878-a3b3-3df88ab4131b",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f683d91751cf73ae2785efe9d3731de3fbac5d81aacee06e3d4e1788f06efad5"
