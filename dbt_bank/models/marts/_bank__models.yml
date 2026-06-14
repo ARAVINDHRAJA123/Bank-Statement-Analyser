@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    description: One row per cleaned, categorised transaction with an anomaly flag.
+    columns:
+      - name: transaction_id
+        description: Surrogate key (md5 of date + narration + amounts).
+        data_tests:
+          - not_null
+          - unique
+      - name: txn_date
+        data_tests:
+          - not_null
+      - name: category
+        description: Spending category assigned by keyword rules.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'Food & Dining'
+                  - 'Transport'
+                  - 'Shopping'
+                  - 'Bills & Utilities'
+                  - 'Health'
+                  - 'Insurance'
+                  - 'Entertainment'
+                  - 'Finance & EMI'
+                  - 'Salary / Income'
+                  - 'Other Income'
+                  - 'Other Expense'
+      - name: is_anomaly
+        data_tests:
+          - not_null
+
+  - name: agg_monthly_summary
+    description: Income, expense and net per calendar month.
+    columns:
+      - name: month
+        data_tests:
+          - not_null
+          - unique
+
+  - name: agg_category_spend
+    description: Total amount and transaction count per category.
+    columns:
+      - name: category
+        data_tests:
+          - not_null
+          - unique

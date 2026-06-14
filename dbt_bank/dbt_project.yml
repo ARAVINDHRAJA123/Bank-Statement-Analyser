@@ -1,0 +1,17 @@
+name: 'bank_statements'
+version: '1.0.0'
+config-version: 2
+
+profile: 'bank_statements'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  bank_statements:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
