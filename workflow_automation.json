@@ -1,0 +1,295 @@
+{
+  "name": "Bank Statement Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1Q5-MNk4GSwtRZ6bARiN8iJ-tEnX93fuI",
+          "mode": "list",
+          "cachedResultName": "Bank Statements",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1Q5-MNk4GSwtRZ6bARiN8iJ-tEnX93fuI"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9a252489-a323-49dc-9c18-8dae092d63b0",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5BqeNFaKR95KhLXC",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "c18b9f3e-5214-4c4c-ad59-0a37da5638fa",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "FTTtCIpoEedybqoP",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:5050/download",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "e776e133-67e5-418c-a5d5-ab62fca9a228",
+      "name": "HTTP Request GET"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5050/analyse",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "d1b51642-2af9-494d-8bad-7e24b5072936",
+      "name": "HTTP Request POST"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('HTTP Request POST').item.json.drive_file }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1GWsTUyBlrg3FDw8IkqBsJP3r_5LaMEjh",
+          "mode": "list",
+          "cachedResultName": "Bank Statement Reports",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1GWsTUyBlrg3FDw8IkqBsJP3r_5LaMEjh"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "abf35c9d-0c2f-45a6-92e7-2f8b36264c98",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "6NigmxgPWMNyIS9u",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "744414502",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "MarkdownV2"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "a8be56ae-c0ca-4e5e-b95b-bc7be6433584",
+      "name": "Send a text message",
+      "webhookId": "8bfcf78f-b37c-41b0-9110-0ae89b317355",
+      "credentials": {
+        "telegramApi": {
+          "id": "OP638imnTgNRIf9A",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "aravinth7859@gmail.com",
+        "toEmail": "aravinth7859@gmail.com",
+        "subject": "=Bank Statement Report — {{ $('Code').item.json.drive_folder }}",
+        "emailFormat": "text",
+        "text": "={{ $('Code').item.json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1456,
+        0
+      ],
+      "id": "68de8e4d-135c-40a1-95e4-61cf33a10a79",
+      "name": "Send an Email",
+      "webhookId": "ac3edef3-e101-4a17-9770-bf503942c22a",
+      "credentials": {
+        "smtp": {
+          "id": "dJT5OdXHtsV0AgQL",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const stats = $('HTTP Request POST').item.json;\n\nfunction escape(text) {\n  return String(text).replace(/[_*[\\]()~`>#+\\-=|{}.!]/g, '\\\\$&');\n}\n\nconst message = \"📊 *Bank Statement Report Ready*\\n\\n\" +\n  \"📅 Period: \" + escape(stats.drive_folder) + \"\\n\" +\n  \"💰 Total Spend: Rs\\\\.`\" + escape(stats.total_spend) + \"`\\n\" +\n  \"💵 Total Income: Rs\\\\.`\" + escape(stats.total_income) + \"`\\n\" +\n  \"📈 Net Cash Flow: Rs\\\\.`\" + escape(stats.net_cash_flow) + \"`\\n\" +\n  \"🏷 Top Category: \" + escape(stats.top_category) + \"\\n\" +\n  \"🔢 Transactions: \" + escape(stats.transactions) + \"\\n\" +\n  \"⚠ Anomalies: \" + escape(stats.anomalies) + \"\\n\\n\" +\n  \"📁 Saved to: \" + escape(stats.drive_folder);\n\nreturn [{\n  json: {\n    message: message,\n    total_spend:   stats.total_spend,\n    total_income:  stats.total_income,\n    net_cash_flow: stats.net_cash_flow,\n    top_category:  stats.top_category,\n    transactions:  stats.transactions,\n    anomalies:     stats.anomalies,\n    drive_folder:  stats.drive_folder,\n    drive_file:    stats.drive_file\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "5b8c2044-bfc5-4901-aa91-faeba46da8bc",
+      "name": "Code"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request GET": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request POST": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a5e97a81-17c8-45e8-8395-d34ca981c2b9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f683d91751cf73ae2785efe9d3731de3fbac5d81aacee06e3d4e1788f06efad5"
+  },
+  "id": "w5zYUtGAuextjW4w",
+  "tags": []
+}
