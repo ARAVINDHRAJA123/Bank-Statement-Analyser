@@ -160,13 +160,19 @@ OUTPUT_XLSX = "Bank_Statement_Report.xlsx"
 ANOMALY_Z   = 2.0   # sensitivity — lower = more flags, higher = fewer
 ```
 
-To add or edit spending categories, update `CATEGORY_KEYWORDS`:
-```python
-CATEGORY_KEYWORDS = {
-    "Food & Dining": ["swiggy", "zomato", "your_restaurant", ...],
-    "My Category":   ["keyword1", "keyword2"],
-}
+To add or edit spending categories, update the keyword seed at
+`dbt_bank/seeds/category_keywords.csv`. It is the single source of truth shared
+by the Python analyser (`load_category_rules`) and the dbt `category_keywords`
+seed, so both stay in sync. Each row is `priority,category,keyword,requires_credit`
+(lowest priority wins; `requires_credit=true` only matches on credit transactions,
+used for the salary rules):
+```csv
+priority,category,keyword,requires_credit
+2,Food & Dining,swiggy,false
+2,Food & Dining,your_restaurant,false
+1,Salary / Income,salary,true
 ```
+After editing, re-run `dbt seed` (and `dbt build`) to refresh the warehouse.
 
 ---
 

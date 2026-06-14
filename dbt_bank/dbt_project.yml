@@ -15,3 +15,12 @@ models:
       +materialized: view
     marts:
       +materialized: table
+
+seeds:
+  bank_statements:
+    category_keywords:
+      +column_types:
+        priority: INT64
+        category: STRING
+        keyword: STRING
+        requires_credit: BOOL

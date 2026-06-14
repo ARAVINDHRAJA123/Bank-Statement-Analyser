@@ -14,6 +14,8 @@ Programmatic (used by the Flask server):
     stats = analyse("input.pdf", "output.xlsx")
 """
 
+import csv
+import os
 import re
 import sys
 import pdfplumber
@@ -42,29 +44,32 @@ HDFC_COLS = [
     ("balance",   560, 700),
 ]
 
-CATEGORY_KEYWORDS = {
-    "Food & Dining":     ["adyar ananda", "chai kings", "tea time", "hot chips",
-                          "swiggy", "zomato", "dominos", "pizza", "kfc",
-                          "mcdonalds", "restaurant", "cafe", "food", "biryani",
-                          "eat", "burger", "starbucks"],
-    "Transport":         ["uber", "ola", "rapido", "petrol", "fuel", "irctc",
-                          "bus", "metro", "parking", "toll", "flight", "indigo",
-                          "airasia", "redbus", "makemytrip"],
-    "Shopping":          ["amazon pay groceries", "max retail", "amazon",
-                          "flipkart", "myntra", "meesho", "ajio", "zepto",
-                          "blinkit", "bigbasket", "nykaa"],
-    "Bills & Utilities": ["lazypay", "jio", "airtel", "vi ", "bsnl", "broadband",
-                          "recharge", "postpaid", "dth", "fasttag", "electricity"],
-    "Health":            ["pharmacy", "medical", "doctor", "hospital", "apollo",
-                          "medplus", "1mg", "netmeds", "diagnostic"],
-    "Insurance":         ["icici lom", "icici lombard", "lic", "insurance",
-                          "bajaj allianz", "hdfc ergo", "star health"],
-    "Entertainment":     ["netflix", "prime", "hotstar", "spotify", "bookmyshow",
-                          "inox", "pvr"],
-    "Finance & EMI":     ["emi", "loan", "mutual fund", "sip", "nach", "ach",
-                          "ecs", "neft", "imps", "rtgs", "credit card", "bajaj"],
-    "Salary / Income":   ["salary", "sal ", "payroll", "income", "stipend"],
-}
+# Category keyword rules. Single source of truth shared with the dbt
+# `category_keywords` seed, so the Python and SQL categorisation stay in sync.
+# Each rule: (priority, category, keyword, requires_credit). Lowest priority
+# wins; requires_credit encodes the salary credit-gate.
+CATEGORY_KEYWORDS_CSV = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "dbt_bank", "seeds", "category_keywords.csv",
+)
+
+
+def load_category_rules(path: str = CATEGORY_KEYWORDS_CSV) -> list[tuple[int, str, str, bool]]:
+    """Load the shared category keyword seed, sorted by ascending priority."""
+    rules = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            rules.append((
+                int(row["priority"]),
+                row["category"],
+                row["keyword"].lower(),
+                row["requires_credit"].strip().lower() == "true",
+            ))
+    rules.sort(key=lambda r: r[0])
+    return rules
+
+
+CATEGORY_RULES = load_category_rules()
 
 # ── Date / amount helpers ───────────────────────────────────────────────────
 
@@ -247,11 +252,11 @@ def extract_merchant(narration: str) -> str:
 
 def assign_category(narration: str, credit: float) -> str:
     text = narration.lower()
-    if credit > 0 and any(k in text for k in ["salary", "sal ", "payroll", "income", "stipend"]):
-        return "Salary / Income"
-    for cat, keywords in CATEGORY_KEYWORDS.items():
-        if any(k.lower() in text for k in keywords):
-            return cat
+    for _priority, category, keyword, requires_credit in CATEGORY_RULES:
+        if requires_credit and not credit > 0:
+            continue
+        if keyword in text:
+            return category
     return "Other Income" if credit > 0 else "Other Expense"
 
 def clean_and_enrich(raw: list[dict]) -> list[dict]:

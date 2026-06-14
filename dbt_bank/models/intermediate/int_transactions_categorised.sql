@@ -1,7 +1,9 @@
 -- Intermediate: assign a spending category to each transaction.
--- Mirrors the Python CATEGORY_KEYWORDS logic in SQL. For a larger keyword
--- set you'd move this to a seed (seeds/category_keywords.csv) joined on a
--- regexp match; kept inline here so the sketch is self-contained.
+-- Keyword rules live in the `category_keywords` seed (the single source of
+-- truth, shared with the Python analyser). For each transaction we take the
+-- matching rule with the lowest `priority`; the `requires_credit` flag encodes
+-- the salary credit-gate (only treat salary keywords as income on credits).
+-- No match -> Other Income / Other Expense based on the sign of the amount.
 
 with txns as (
 
@@ -9,34 +11,55 @@ with txns as (
 
 ),
 
+keywords as (
+
+    select
+        priority,
+        category,
+        lower(keyword) as keyword,
+        requires_credit
+    from {{ ref('category_keywords') }}
+
+),
+
+matches as (
+
+    select
+        t.transaction_id,
+        k.priority,
+        k.category
+    from txns t
+    join keywords k
+        on strpos(lower(t.narration), k.keyword) > 0
+       and (not k.requires_credit or t.credit_amount > 0)
+
+),
+
+best_match as (
+
+    select
+        transaction_id,
+        category,
+        row_number() over (
+            partition by transaction_id
+            order by priority
+        ) as rn
+    from matches
+
+),
+
 categorised as (
 
     select
-        *,
-        case
-            when credit_amount > 0
-                 and regexp_contains(lower(narration), r'salary|payroll|stipend|income')
-                then 'Salary / Income'
-            when regexp_contains(lower(narration), r'swiggy|zomato|mcdonalds|restaurant|cafe|food|biryani|starbucks')
-                then 'Food & Dining'
-            when regexp_contains(lower(narration), r'uber|ola|rapido|petrol|fuel|irctc|metro|redbus|makemytrip')
-                then 'Transport'
-            when regexp_contains(lower(narration), r'amazon|flipkart|myntra|meesho|ajio|zepto|blinkit|bigbasket|nykaa')
-                then 'Shopping'
-            when regexp_contains(lower(narration), r'jio|airtel|bsnl|broadband|recharge|electricity|fasttag')
-                then 'Bills & Utilities'
-            when regexp_contains(lower(narration), r'pharmacy|medical|hospital|apollo|medplus|1mg|netmeds')
-                then 'Health'
-            when regexp_contains(lower(narration), r'insurance|lic|lombard|bajaj allianz|star health')
-                then 'Insurance'
-            when regexp_contains(lower(narration), r'netflix|prime|hotstar|spotify|bookmyshow|inox|pvr')
-                then 'Entertainment'
-            when regexp_contains(lower(narration), r'emi|loan|mutual fund|\bsip\b|neft|imps|rtgs|credit card')
-                then 'Finance & EMI'
-            when credit_amount > 0 then 'Other Income'
-            else 'Other Expense'
-        end as category
-    from txns
+        t.*,
+        coalesce(
+            b.category,
+            case when t.credit_amount > 0 then 'Other Income' else 'Other Expense' end
+        ) as category
+    from txns t
+    left join best_match b
+        on b.transaction_id = t.transaction_id
+       and b.rn = 1
 
 )
 
