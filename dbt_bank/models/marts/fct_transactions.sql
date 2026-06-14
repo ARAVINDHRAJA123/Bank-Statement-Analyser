@@ -1,6 +1,20 @@
 -- Mart: one row per transaction, enriched with the anomaly flag.
--- Anomaly logic mirrors the Python z-score (debit > mean + 2 * population stddev),
--- but computed in-warehouse with window functions over all debit transactions.
+-- Anomaly logic mirrors the Python z-score (debit > mean + anomaly_z * population
+-- stddev), computed in-warehouse over all debit transactions.
+--
+-- Incremental: only unseen transactions (by surrogate key) are appended on each
+-- run, so re-loading the same statement is a no-op and new statements add only
+-- their own rows. The anomaly stats are still computed over the FULL upstream
+-- population (the int_ view reads all of raw), so newly inserted rows are scored
+-- against complete history. Already-loaded rows keep the flag they were given;
+-- run `dbt build --full-refresh` to re-score everything after a large data shift.
+
+{{ config(
+    materialized='incremental',
+    unique_key='transaction_id',
+    incremental_strategy='merge',
+    on_schema_change='sync_all_columns'
+) }}
 
 with txns as (
 
@@ -44,3 +58,10 @@ final as (
 )
 
 select * from final
+
+{% if is_incremental() %}
+
+-- only append transactions we have not already loaded
+where transaction_id not in (select transaction_id from {{ this }})
+
+{% endif %}
