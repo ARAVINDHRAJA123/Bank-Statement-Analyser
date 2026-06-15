@@ -81,7 +81,8 @@ Telegram + Email — summary with spend, category, anomalies
 
 ### n8n Automation Workflow
 
-<img width="1914" height="913" alt="Image" src="https://github.com/user-attachments/assets/dea835ed-9783-40a0-8a54-6fa42f0aa7a1" />
+<img width="806" height="416" alt="image" src="https://github.com/user-attachments/assets/2db66403-d5dc-440c-89d9-12a3efac3043" />
+
 
 ### Automation Setup
 
@@ -321,11 +322,3 @@ Bank-Statement-Analyser/
 ├── README.md
 └── LICENSE
 ```
-
----
-
-## 📷 Sample Output
-
-### Transactions & Analytics Dashboard
-
-<img width="1339" height="659" alt="image" src="https://github.com/user-attachments/assets/d52e77f7-1d92-43dd-8ab8-a3c9fea39130" />
