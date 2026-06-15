@@ -5,14 +5,11 @@ Run from the repo root:
     pip install pytest
     pytest -q
 
-These cover the pure, deterministic logic (parsing, column assignment,
-merchant/category extraction, anomaly detection) plus a regression test
-for the STATEMENT SUMMARY bug where the statement's total-Debits figure
-was being written onto the last transaction's empty debit field.
-
-Assumes the analyser_patch.py changes have been applied to
-Bank_Statement_Analyser.py (importable analyse(), _parse_page_words,
-_is_summary_line, and argv handling moved into main()).
+These cover the pure, deterministic logic — parse_amount/parse_date,
+assign_col (x-coordinate → column), extract_merchant, assign_category and
+detect_anomalies — plus a regression test for the STATEMENT SUMMARY bug where
+the statement's total-Debits figure was being written onto the last
+transaction's empty debit field (see _parse_page_words).
 """
 from datetime import date
 
