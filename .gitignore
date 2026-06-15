@@ -24,3 +24,4 @@ dbt_bank/.user.yml
 
 # Private notes — keep local, do not publish
 docs/PROJECT_GUIDE.md
+CLAUDE.md
