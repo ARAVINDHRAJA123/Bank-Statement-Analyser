@@ -158,6 +158,11 @@ GitHub Pages:
 [aravindhraja123.github.io/Bank-Statement-Analyser](https://aravindhraja123.github.io/Bank-Statement-Analyser/)
 — or browse locally with `cd dbt_bank && dbt docs generate && dbt docs serve`.
 
+📈 **BI dashboard:** a Looker Studio (Data Studio) dashboard is built on the
+marts — KPI scorecards (income, expense, net, anomalies), monthly income vs
+expense, spend by category, and top merchants. It isn't linked here because it
+renders real transactions; rebuild it on a sample statement to share publicly.
+
 > **Requirements & notes**
 > - Needs a GCP project with **BigQuery billing enabled** — incremental models
 >   use a `MERGE` (DML), which the free-tier sandbox blocks. The workload stays
@@ -325,5 +330,9 @@ Bank-Statement-Analyser/
 
 ---
 
-## dbt docs lineage graph
-<img width="1821" height="746" alt="image" src="https://github.com/user-attachments/assets/ba4494d2-5b52-4708-b6d6-6419cdc8f755" />
+## 🧬 dbt Docs Lineage Graph
+
+The model dependency graph from the published dbt docs (`raw` → staging →
+intermediate → marts):
+
+<img width="1821" height="746" alt="dbt docs lineage graph" src="https://github.com/user-attachments/assets/ba4494d2-5b52-4708-b6d6-6419cdc8f755" />
