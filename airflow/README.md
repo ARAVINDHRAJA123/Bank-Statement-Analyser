@@ -84,6 +84,34 @@ airflow standalone
 # then trigger with: {"pdf_path": "/path/to/statement.pdf"}
 ```
 
-> Windows note: the loader runs on Python 3.14 and dbt in a 3.12 venv. Airflow
-> itself does not run natively on Windows — use WSL2, Docker, or Cloud Composer.
-> Point `python_executable` / `dbt_executable` at the right interpreters.
+### Running on Windows
+
+Airflow does **not** run natively on Windows. Seeing the UI needs WSL2 or Docker
+Desktop, both of which require admin rights — and on a corporate/managed machine
+they may be blocked by policy or need IT approval (Docker Desktop also has
+licensing rules for large orgs). A blocked WSL install typically fails with
+`Logon failure ... 0x80070569`, which is a group-policy restriction, not a bug.
+
+**You usually don't need the UI.** The DAG just orchestrates commands you can run
+by hand:
+
+| DAG task | Equivalent command |
+|----------|--------------------|
+| `ingest_pdf` | pick a PDF path |
+| `load_to_bigquery` | `python load_to_bigquery.py "statement.pdf"` |
+| `dbt_build` | `cd dbt_bank && dbt build` |
+| `notify` | POST to your webhook |
+
+If you *do* want the UI and WSL2 is allowed, the lightest route is a venv inside
+Ubuntu (no Docker):
+```bash
+# inside an Ubuntu (WSL2) terminal
+python3 -m venv ~/airflow-venv && source ~/airflow-venv/bin/activate
+pip install "apache-airflow==2.9.3"
+export AIRFLOW_HOME=~/airflow && mkdir -p ~/airflow/dags
+cp /mnt/c/GIT_Projects/Bank-Statement-Analyser/airflow/dags/bank_statement_pipeline.py ~/airflow/dags/
+airflow standalone      # UI at http://localhost:8080 (prints an admin password)
+```
+
+> Note: the loader runs on Python 3.14 and dbt in a 3.12 venv. Point
+> `python_executable` / `dbt_executable` at the right interpreters for a real run.

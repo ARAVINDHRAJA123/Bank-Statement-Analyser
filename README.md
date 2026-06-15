@@ -1,9 +1,17 @@
 # 💳 Bank Statement Analyser — with Automation
 
-A Python tool that converts HDFC bank statement PDFs into structured Excel
-reports, with an optional n8n automation pipeline that watches Google Drive,
-runs the analyser automatically, uploads the report, and sends a summary
-via Telegram and Email.
+A data pipeline that turns HDFC bank-statement PDFs into two things, from one
+Python parser:
+
+1. **An instant Excel report** — delivered automatically by an n8n workflow that
+   watches Google Drive, runs the analyser through a Flask service, and sends the
+   report back over Telegram and Email.
+2. **A tested BigQuery analytics warehouse** — parsed transactions are loaded to
+   BigQuery and modelled with dbt (staging → marts, with data tests and an
+   incremental fact table), orchestrated by Airflow.
+
+In plain terms: drop in a bank statement, get back a clean spending report *and*
+a queryable history of your transactions.
 
 ---
 
@@ -60,7 +68,7 @@ Google Drive (Bank Statements folder)
 n8n — Google Drive Trigger
         │
         ▼
-Flask server (server.py) — runs bank_statement_analyser.py
+Flask server (server.py) — runs Bank_Statement_Analyser.py
         │
         ▼
 Google Drive (Bank Statement Reports/Output_DD-MM-YYYY/)
@@ -159,28 +167,36 @@ To explore the lineage interactively: `dbt docs generate && dbt docs serve`.
 pip install -r requirements.txt
 ```
 
-Rename your HDFC PDF to `Account Statement.pdf` and place it in the same folder, then:
+Place your HDFC PDF in the folder and run (defaults to `Account Statement.pdf`
+if no path is given):
 ```bash
-python bank_statement_analyser.py
+python Bank_Statement_Analyser.py "your statement.pdf"
 ```
 
 Open `Bank_Statement_Report.xlsx` to see your report.
+
+### Run the tests
+```bash
+python -m pytest -q
+```
 
 ---
 
 ## 📦 Requirements
 
-- Python 3.10 or higher
-- Node.js 18 or higher (for n8n automation only)
-- See `requirements.txt`
+- Python 3.10+ for the analyser & Flask server (the BigQuery loader was run on
+  3.14). dbt runs in its own Python 3.12 virtualenv, installed separately.
+- Node.js 18+ (for the n8n automation only)
+- See `requirements.txt`:
 ```
-pdfplumber>=0.11.0
-openpyxl>=3.1.0
-flask>=3.0.0
-google-auth>=2.0.0
-google-auth-httplib2>=0.2.0
-google-api-python-client>=2.0.0
+pdfplumber>=0.11.0              # PDF parsing
+openpyxl>=3.1.0                 # Excel report
+flask>=3.0.0                    # server.py (the n8n bridge)
+google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
+pytest>=8.0.0                  # test suite
 ```
+> `dbt-bigquery` is installed in a separate Python 3.12 venv, not via this file
+> — see [`airflow/README.md`](airflow/README.md).
 
 ---
 
@@ -245,9 +261,9 @@ Transactions that are statistically much larger than your usual spend, with a pl
 
 All settings are at the top of the script:
 ```python
-INPUT_PDF   = "Account Statement.pdf"   # your PDF filename
-OUTPUT_XLSX = "Bank_Statement_Report.xlsx"
-ANOMALY_Z   = 2.0   # sensitivity — lower = more flags, higher = fewer
+DEFAULT_INPUT_PDF   = "Account Statement.pdf"   # default PDF filename
+DEFAULT_OUTPUT_XLSX = "Bank_Statement_Report.xlsx"
+ANOMALY_Z           = 2.0   # sensitivity — lower = more flags, higher = fewer
 ```
 
 To add or edit spending categories, update the keyword seed at
@@ -279,14 +295,25 @@ For other banks (SBI, ICICI, Axis), the `HDFC_COLS` coordinate boundaries at the
 ## 📁 Project Structure
 ```
 Bank-Statement-Analyser/
-├── bank_statement_analyser.py    ← main script
-├── server.py                     ← Flask server for n8n automation
-├── workflow_automation.json      ← n8n workflow (import this)
+├── Bank_Statement_Analyser.py     ← parser + analytics + Excel export + analyse() API
+├── server.py                      ← Flask server (the n8n bridge)
+├── load_to_bigquery.py            ← lands parsed rows into raw.bank_transactions
+├── workflow_automation.json       ← n8n workflow (import this)
+├── tests/test_analyser.py         ← pytest suite
+├── conftest.py                    ← puts the repo root on the import path
 ├── requirements.txt
-├── .gitignore
+├── dbt_bank/                      ← dbt project (BigQuery analytics layer)
+│   ├── dbt_project.yml
+│   ├── seeds/category_keywords.csv   ← category keywords (single source of truth)
+│   └── models/
+│       ├── staging/        stg_bank__transactions.sql (+ sources)
+│       ├── intermediate/   int_transactions_categorised.sql
+│       └── marts/          fct_transactions.sql, agg_monthly_summary.sql, agg_category_spend.sql
+├── airflow/                       ← Airflow DAG for the batch pipeline
+│   ├── dags/bank_statement_pipeline.py
+│   └── README.md
 ├── README.md
-└── assets/
-    └── workflow.png              ← n8n canvas screenshot
+└── LICENSE
 ```
 
 ---

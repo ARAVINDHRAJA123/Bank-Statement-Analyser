@@ -4,9 +4,11 @@
 # Install with:
 #   pip install -r requirements.txt
 
-pdfplumber>=0.11.0
-openpyxl>=3.1.0
-flask>=3.0.0
-google-auth>=2.0.0
-google-auth-httplib2>=0.2.0
-google-api-python-client>=2.0.0
+pdfplumber>=0.11.0              # PDF parsing
+openpyxl>=3.1.0                 # Excel report
+flask>=3.0.0                    # server.py (the n8n bridge)
+google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
+pytest>=8.0.0                  # test suite
+
+# Note: dbt (dbt-bigquery) is installed in a separate Python 3.12 virtualenv,
+# not via this file — see airflow/README.md.
