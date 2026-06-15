@@ -1,0 +1,13 @@
+# CI-only dbt profile. No credentials — used by `dbt parse` in GitHub Actions to
+# validate that the dbt project compiles. `dbt parse` does not connect to
+# BigQuery, so the placeholder project is fine. Real runs use ~/.dbt/profiles.yml.
+bank_statements:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT', 'ci-placeholder') }}"
+      dataset: analytics
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      threads: 1

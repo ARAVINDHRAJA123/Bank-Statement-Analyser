@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests:
+    name: pytest (analyser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: python -m pytest -q
+
+  dbt-validate:
+    name: dbt parse (models)
+    runs-on: ubuntu-latest
+    env:
+      # dbt parse does not connect to BigQuery; placeholders satisfy env_var().
+      GCP_PROJECT: ci-placeholder
+      BQ_LOCATION: US
+      DBT_PROFILES_DIR: ${{ github.workspace }}/.github/dbt-profiles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dbt-bigquery
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dbt-bigquery>=1.9,<2.0"
+      - name: Validate the dbt project parses
+        working-directory: dbt_bank
+        run: dbt parse --no-partial-parse

@@ -1,5 +1,7 @@
 # 💳 Bank Statement Analyser — with Automation
 
+[![CI](https://github.com/ARAVINDHRAJA123/Bank-Statement-Analyser/actions/workflows/ci.yml/badge.svg)](https://github.com/ARAVINDHRAJA123/Bank-Statement-Analyser/actions/workflows/ci.yml)
+
 A data pipeline that turns HDFC bank-statement PDFs into two things, from one
 Python parser:
 
