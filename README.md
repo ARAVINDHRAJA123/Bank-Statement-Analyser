@@ -151,7 +151,11 @@ dbt build           # seeds + models + tests (fct_transactions is incremental)
 dbt build --full-refresh   # rebuild from scratch (e.g. to re-score anomalies)
 ```
 Airflow can run this on a schedule — see [`airflow/README.md`](airflow/README.md).
-To explore the lineage interactively: `dbt docs generate && dbt docs serve`.
+
+📖 **Interactive dbt docs** (models, columns, lineage graph) are published via
+GitHub Pages:
+[aravindhraja123.github.io/Bank-Statement-Analyser](https://aravindhraja123.github.io/Bank-Statement-Analyser/)
+— or browse locally with `cd dbt_bank && dbt docs generate && dbt docs serve`.
 
 > **Requirements & notes**
 > - Needs a GCP project with **BigQuery billing enabled** — incremental models
