@@ -33,6 +33,20 @@ models:
       - name: is_anomaly
         data_tests:
           - not_null
+      - name: merchant
+        description: Clean merchant name parsed from the narration.
+        data_tests:
+          - not_null
+      - name: debit_amount
+        data_tests:
+          - not_null
+      - name: credit_amount
+        data_tests:
+          - not_null
+      - name: balance
+        description: Running balance after the transaction.
+        data_tests:
+          - not_null
 
   - name: agg_monthly_summary
     description: Income, expense and net per calendar month.
@@ -41,6 +55,18 @@ models:
         data_tests:
           - not_null
           - unique
+      - name: income
+        data_tests:
+          - not_null
+      - name: expense
+        data_tests:
+          - not_null
+      - name: net
+        data_tests:
+          - not_null
+      - name: txn_count
+        data_tests:
+          - not_null
 
   - name: agg_category_spend
     description: Total amount and transaction count per category.
@@ -49,3 +75,9 @@ models:
         data_tests:
           - not_null
           - unique
+      - name: total_amount
+        data_tests:
+          - not_null
+      - name: txn_count
+        data_tests:
+          - not_null
