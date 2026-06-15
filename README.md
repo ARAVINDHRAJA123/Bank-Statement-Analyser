@@ -7,6 +7,47 @@ via Telegram and Email.
 
 ---
 
+## 🏗️ Architecture (two paths, one parser)
+
+One parser core feeds two independent delivery paths. **Path A** gives you an
+instant Excel report when a statement lands (orchestrated by n8n). **Path B**
+keeps a tested BigQuery warehouse refreshed on a schedule (orchestrated by
+Airflow). Both share the same parser and the same category seed, so categories
+stay identical across the report and the warehouse.
+
+```mermaid
+flowchart TD
+    PDF["Bank statement PDF"] --> CORE
+
+    CORE["Bank_Statement_Analyser.py<br/>parse → clean → categorise<br/>(category_keywords.csv seed)"]
+
+    subgraph PathA["Path A — real-time report (n8n)"]
+        direction TB
+        N8N["n8n workflow<br/>(Google Drive trigger)"] --> FLASK["server.py — Flask<br/>/analyse, /download"]
+        FLASK --> OUT["Excel report →<br/>Drive · Telegram · Email"]
+    end
+
+    subgraph PathB["Path B — warehouse analytics (Airflow)"]
+        direction TB
+        AIR["Airflow DAG<br/>(schedule / trigger)"] --> LOAD["load_to_bigquery.py"]
+        LOAD --> RAW[("raw.bank_transactions")]
+        RAW --> DBT["dbt models<br/>stg → int → fct → aggs"]
+        DBT --> MARTS[("analytics dataset<br/>fct_transactions, agg_*")]
+    end
+
+    CORE --> FLASK
+    CORE --> LOAD
+```
+
+| Path | Owner | Trigger | Output | When |
+|------|-------|---------|--------|------|
+| **A — report** | n8n + Flask (`server.py`) | new PDF in Google Drive | Excel → Drive / Telegram / Email | real-time |
+| **B — analytics** | Airflow (`airflow/`) + dbt (`dbt_bank/`) | schedule / manual | BigQuery `analytics` models | batch |
+
+📚 **Analytics layer setup:** [`airflow/README.md`](airflow/README.md)
+
+---
+
 ## 🤖 Automation Pipeline (n8n)
 
 Upload a PDF to Google Drive → n8n detects it → Flask server runs the
@@ -61,6 +102,55 @@ Open `http://localhost:5678` → import `workflow_automation.json`
 - `Bank Statement Reports` — Excel reports saved here automatically
 
 **6. Publish the workflow in n8n**
+
+---
+
+## 📊 Analytics Layer (BigQuery + dbt + Airflow)
+
+The batch path lands parsed transactions in BigQuery and models them with dbt
+into a tested fact table and aggregates, orchestrated by Airflow.
+
+**dbt model lineage:**
+
+```mermaid
+flowchart LR
+    SRC[("raw.bank_transactions<br/>(loaded by load_to_bigquery.py)")]
+    STG["stg_bank__transactions<br/>view · dedupe, cast, surrogate key, merchant"]
+    INT["int_transactions_categorised<br/>view · category from seed"]
+    FCT["fct_transactions<br/>incremental table · + anomaly flag"]
+    AGM["agg_monthly_summary<br/>table"]
+    AGC["agg_category_spend<br/>table"]
+    SEED[/"category_keywords.csv<br/>(seed)"/]
+
+    SRC --> STG --> INT --> FCT
+    SEED --> INT
+    FCT --> AGM
+    FCT --> AGC
+```
+
+**Usage:**
+```powershell
+# 1. land a statement in BigQuery
+$env:GCP_PROJECT="your-project"; $env:BQ_LOCATION="asia-south1"
+python load_to_bigquery.py "statement.pdf"
+
+# 2. build + test the warehouse models
+cd dbt_bank
+dbt debug           # check the connection
+dbt build           # seeds + models + tests (fct_transactions is incremental)
+dbt build --full-refresh   # rebuild from scratch (e.g. to re-score anomalies)
+```
+Airflow can run this on a schedule — see [`airflow/README.md`](airflow/README.md).
+To explore the lineage interactively: `dbt docs generate && dbt docs serve`.
+
+> **Requirements & notes**
+> - Needs a GCP project with **BigQuery billing enabled** — incremental models
+>   use a `MERGE` (DML), which the free-tier sandbox blocks. The workload stays
+>   inside the free monthly allowances (10 GB storage / 1 TB queries).
+> - The `raw` dataset, the dbt profile, and the loader must share the same
+>   `BQ_LOCATION` (region), or dbt will fail.
+> - **Never commit financial data.** `.gitignore` blocks `*.pdf` / `*.xlsx` /
+>   `*.png`; keep input statements and generated reports untracked.
 
 ---
 

@@ -58,6 +58,10 @@ PYTHON_EXECUTABLE = cfg("python_executable", "PYTHON_EXECUTABLE", "python")
 DBT_EXECUTABLE = cfg("dbt_executable", "DBT_EXECUTABLE", "dbt")
 GCS_BUCKET = cfg("statements_gcs_bucket", "STATEMENTS_GCS_BUCKET")
 GCS_PREFIX = cfg("statements_gcs_prefix", "STATEMENTS_GCS_PREFIX", "statements/")
+# Optional outbound webhook for the notify step. Works for any service that
+# accepts a JSON POST: an n8n Webhook node URL, or a Slack incoming webhook
+# (both consume {"text": "..."}). Leave unset to make notify a no-op.
+NOTIFY_WEBHOOK_URL = cfg("notify_webhook_url", "NOTIFY_WEBHOOK_URL")
 
 # Environment passed to the shell tasks so the loader and dbt see the same
 # project/region/profile as a local run.
@@ -107,6 +111,37 @@ def resolve_pdf(**context) -> str:
     return pdf_path
 
 
+# ── Task: notify a webhook (n8n / Slack) ────────────────────────────────────
+def notify(**context) -> str:
+    """POST a one-line success message to NOTIFY_WEBHOOK_URL.
+
+    The payload is {"text": "..."}, which both an n8n Webhook node and a Slack
+    incoming webhook accept. If no URL is configured the task is a no-op, so the
+    DAG runs out of the box. Uses stdlib only (no extra Airflow deps).
+    """
+    if not NOTIFY_WEBHOOK_URL:
+        print("notify_webhook_url not set — skipping notification.")
+        return "skipped"
+
+    import json
+    import urllib.request
+
+    pdf = context["ti"].xcom_pull(task_ids="ingest_pdf")
+    message = (
+        f"✅ Bank statement pipeline succeeded for {context['ds']}\n"
+        f"• statement: {os.path.basename(pdf) if pdf else 'n/a'}\n"
+        f"• warehouse: dbt build complete (fct_transactions refreshed)"
+    )
+    data = json.dumps({"text": message}).encode("utf-8")
+    req = urllib.request.Request(
+        NOTIFY_WEBHOOK_URL, data=data,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        print(f"notify POST -> {resp.status}")
+    return "sent"
+
+
 with DAG(
     dag_id="bank_statement_pipeline",
     description="Ingest a bank statement PDF, load to BigQuery, run dbt.",
@@ -149,11 +184,11 @@ with DAG(
         append_env=False,
     )
 
-    # Hook for downstream signalling (e.g. ping the n8n webhook, Slack, email).
-    # Left as a no-op so the DAG is runnable out of the box.
-    notify = BashOperator(
+    # Ping a webhook (n8n Webhook node or Slack incoming webhook) on success.
+    # No-op if notify_webhook_url is unset, so the DAG runs out of the box.
+    notify_task = PythonOperator(
         task_id="notify",
-        bash_command='echo "Pipeline complete for {{ ds }}."',
+        python_callable=notify,
     )
 
-    ingest >> load >> dbt_build >> notify
+    ingest >> load >> dbt_build >> notify_task

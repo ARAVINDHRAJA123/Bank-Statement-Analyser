@@ -43,6 +43,22 @@ falls back to env vars so it behaves like the CLI:
 | `dbt_executable` | `DBT_EXECUTABLE` | dbt binary (the dbt-bigquery venv) |
 | `statements_gcs_bucket` | `STATEMENTS_GCS_BUCKET` | where new PDFs land (Composer) |
 | `statements_gcs_prefix` | `STATEMENTS_GCS_PREFIX` | default `statements/` |
+| `notify_webhook_url` | `NOTIFY_WEBHOOK_URL` | optional; POST target for the `notify` step (n8n / Slack). Unset = no-op |
+
+### Notifications (the `notify` task)
+
+The `notify` task POSTs `{"text": "..."}` to `notify_webhook_url` on success.
+That payload is accepted by both targets, so you can use either without code
+changes:
+
+- **n8n (you already have this):** add a **Webhook** node in n8n, copy its
+  Production URL, and set `notify_webhook_url` to it. The DAG will ping your n8n
+  workflow when the warehouse refresh finishes — you can then have n8n forward
+  it to Telegram/Email.
+- **Slack (optional):** create a free workspace, add an **Incoming Webhook**
+  app, copy its URL, and set `notify_webhook_url` to it.
+
+Leave `notify_webhook_url` unset and the task just logs "skipped".
 
 Auth: Application Default Credentials. Locally, `gcloud auth application-default
 login`; on Cloud Composer, the environment's service account (grant it BigQuery
