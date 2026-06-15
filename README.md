@@ -322,3 +322,8 @@ Bank-Statement-Analyser/
 ├── README.md
 └── LICENSE
 ```
+
+---
+
+## dbt docs lineage graph
+<img width="1821" height="746" alt="image" src="https://github.com/user-attachments/assets/ba4494d2-5b52-4708-b6d6-6419cdc8f755" />
