@@ -179,6 +179,10 @@ marts — KPI scorecards (income, expense, net, anomalies), monthly income vs
 expense, spend by category, and top merchants. It isn't linked here because it
 renders real transactions; rebuild it on a sample statement to share publicly.
 
+⚙️ **Continuous integration:** every push and pull request runs the pytest suite
+and `dbt parse` via GitHub Actions (the build badge at the top), so code or model
+regressions are caught automatically.
+
 > **Requirements & notes**
 > - Needs a GCP project with **BigQuery billing enabled** — incremental models
 >   use a `MERGE` (DML), which the free-tier sandbox blocks. The workload stays
