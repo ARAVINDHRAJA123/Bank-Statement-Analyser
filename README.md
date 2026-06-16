@@ -9,8 +9,9 @@ Python parser:
    watches Google Drive, runs the analyser through a Flask service, and sends the
    report back over Telegram and Email.
 2. **A tested BigQuery analytics warehouse** — parsed transactions are loaded to
-   BigQuery and modelled with dbt (staging → marts, with data tests and an
-   incremental fact table), orchestrated by Airflow.
+   BigQuery and modelled with dbt into a **dimensional star schema** (an
+   incremental fact table, date/merchant/category dimensions, an SCD2 history
+   snapshot, and data tests), orchestrated by Airflow.
 
 In plain terms: drop in a bank statement, get back a clean spending report *and*
 a queryable history of your transactions.
@@ -119,24 +120,39 @@ Open `http://localhost:5678` → import `workflow_automation.json`
 ## 📊 Analytics Layer (BigQuery + dbt + Airflow)
 
 The batch path lands parsed transactions in BigQuery and models them with dbt
-into a tested fact table and aggregates, orchestrated by Airflow.
+into a **dimensional star schema**: an incremental `fct_transactions` fact table
+surrounded by `dim_date` / `dim_merchant` / `dim_category` dimensions, plus
+monthly and category aggregates. It also keeps an **SCD2 snapshot** of each
+merchant's category (history of changes), and a reusable **surrogate-key macro**
+builds the keys. All orchestrated by Airflow and covered by data tests —
+including foreign-key (relationship) tests between the fact and its dimensions.
 
 **dbt model lineage:**
 
 ```mermaid
 flowchart LR
     SRC[("raw.bank_transactions<br/>(loaded by load_to_bigquery.py)")]
+    SEED[/"category_keywords.csv<br/>(seed)"/]
     STG["stg_bank__transactions<br/>view · dedupe, cast, surrogate key, merchant"]
     INT["int_transactions_categorised<br/>view · category from seed"]
-    FCT["fct_transactions<br/>incremental table · + anomaly flag"]
+    FCT["fct_transactions<br/>incremental fact · FKs + anomaly flag"]
+    DDATE["dim_date"]
+    DMERCH["dim_merchant"]
+    DCAT["dim_category"]
     AGM["agg_monthly_summary<br/>table"]
     AGC["agg_category_spend<br/>table"]
-    SEED[/"category_keywords.csv<br/>(seed)"/]
+    SNAP["merchant_category_snapshot<br/>SCD2 history"]
 
     SRC --> STG --> INT --> FCT
     SEED --> INT
+    STG --> DDATE
+    STG --> DMERCH
+    INT --> DCAT
+    INT --> SNAP
     FCT --> AGM
     FCT --> AGC
+    DDATE --> AGM
+    DCAT --> AGC
 ```
 
 **Usage:**
@@ -316,11 +332,14 @@ Bank-Statement-Analyser/
 ├── requirements.txt
 ├── dbt_bank/                      ← dbt project (BigQuery analytics layer)
 │   ├── dbt_project.yml
-│   ├── seeds/category_keywords.csv   ← category keywords (single source of truth)
+│   ├── seeds/category_keywords.csv               ← category keywords (single source of truth)
+│   ├── macros/surrogate_key.sql                  ← reusable surrogate-key macro
+│   ├── snapshots/merchant_category_snapshot.sql  ← SCD2 history of merchant → category
 │   └── models/
 │       ├── staging/        stg_bank__transactions.sql (+ sources)
 │       ├── intermediate/   int_transactions_categorised.sql
-│       └── marts/          fct_transactions.sql, agg_monthly_summary.sql, agg_category_spend.sql
+│       └── marts/          fct_transactions.sql (fact) · dim_date · dim_merchant · dim_category
+│                           · agg_monthly_summary · agg_category_spend
 ├── airflow/                       ← Airflow DAG for the batch pipeline
 │   ├── dags/bank_statement_pipeline.py
 │   └── README.md
