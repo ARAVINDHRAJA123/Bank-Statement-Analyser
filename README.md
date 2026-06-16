@@ -335,4 +335,5 @@ Bank-Statement-Analyser/
 The model dependency graph from the published dbt docs (`raw` → staging →
 intermediate → marts):
 
-<img width="1821" height="746" alt="dbt docs lineage graph" src="https://github.com/user-attachments/assets/ba4494d2-5b52-4708-b6d6-6419cdc8f755" />
+<img width="1855" height="873" alt="image" src="https://github.com/user-attachments/assets/712b9ee1-48d9-43f7-b53a-74bb53ab3e43" />
+
