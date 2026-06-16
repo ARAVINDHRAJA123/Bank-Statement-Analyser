@@ -28,14 +28,9 @@ deduped as (
 cleaned as (
 
     select
-        -- surrogate key. dbt_utils.generate_surrogate_key is the idiomatic
-        -- choice; using to_hex(md5()) here to stay dependency-free.
-        to_hex(md5(concat(
-            cast(txn_date as string), '|',
-            narration, '|',
-            cast(debit as string), '|',
-            cast(credit as string)
-        ))) as transaction_id,
+        -- surrogate key, built by the surrogate_key() macro (DRY — the same
+        -- helper builds the dimension keys downstream).
+        {{ surrogate_key(['txn_date', 'narration', 'debit', 'credit']) }} as transaction_id,
 
         txn_date,
         value_date,

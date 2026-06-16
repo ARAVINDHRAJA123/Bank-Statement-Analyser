@@ -45,6 +45,10 @@ final as (
         t.credit_amount,
         t.balance,
         t.category,
+        -- foreign keys into the dimensions (star schema). Descriptive columns
+        -- above are kept too, for BI convenience and backward compatibility.
+        {{ surrogate_key(['t.merchant']) }}  as merchant_key,
+        {{ surrogate_key(['t.category']) }}  as category_key,
         case
             when t.debit_amount > 0
                  and t.debit_amount > s.mean_debit + {{ var('anomaly_z', 2.0) }} * s.std_debit

@@ -47,6 +47,22 @@ models:
         description: Running balance after the transaction.
         data_tests:
           - not_null
+      - name: merchant_key
+        description: Foreign key into dim_merchant.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_merchant')
+                field: merchant_key
+      - name: category_key
+        description: Foreign key into dim_category.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_category')
+                field: category_key
 
   - name: agg_monthly_summary
     description: Income, expense and net per calendar month.
@@ -81,3 +97,44 @@ models:
       - name: txn_count
         data_tests:
           - not_null
+
+  - name: dim_date
+    description: Calendar date dimension; one row per day across the data span.
+    columns:
+      - name: date_key
+        description: The date itself; fct_transactions.txn_date joins to this.
+        data_tests:
+          - not_null
+          - unique
+
+  - name: dim_merchant
+    description: Merchant dimension; one row per distinct merchant.
+    columns:
+      - name: merchant_key
+        description: Surrogate key (md5 of merchant name).
+        data_tests:
+          - not_null
+          - unique
+      - name: merchant_name
+        data_tests:
+          - not_null
+
+  - name: dim_category
+    description: Category dimension with an Income/Expense grouping.
+    columns:
+      - name: category_key
+        description: Surrogate key (md5 of category name).
+        data_tests:
+          - not_null
+          - unique
+      - name: category_name
+        data_tests:
+          - not_null
+          - unique
+      - name: category_group
+        description: Income vs Expense grouping derived from the category.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Income', 'Expense']
