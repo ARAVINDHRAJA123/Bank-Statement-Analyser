@@ -9,6 +9,7 @@ openpyxl>=3.1.0                 # Excel report
 flask>=3.0.0                    # server.py (the n8n bridge)
 google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
 pytest>=8.0.0                  # test suite
+anthropic                      # AI features (ai/) — needs ANTHROPIC_API_KEY to run
 
 # Note: dbt (dbt-bigquery) is installed in a separate Python 3.12 virtualenv,
 # not via this file — see airflow/README.md.

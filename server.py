@@ -108,6 +108,26 @@ def download_endpoint():
     )
 
 
+@app.post("/ask")
+def ask_endpoint():
+    """Agentic text-to-SQL over the BigQuery marts (see ai/ask_statement.py).
+    Lazily imported so the core pipeline still runs without the AI deps/key."""
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    if not question:
+        return jsonify(error="missing 'question' in JSON body"), 400
+    try:
+        from ai.ask_statement import ask
+    except Exception:
+        return jsonify(error="AI feature unavailable: pip install anthropic and "
+                             "set ANTHROPIC_API_KEY"), 503
+    try:
+        return jsonify(question=question, answer=ask(question)), 200
+    except Exception as e:
+        log.exception("ask endpoint failed")
+        return jsonify(error=f"{type(e).__name__}: {e}"), 500
+
+
 @app.get("/health")
 def health():
     return jsonify(status="ok"), 200
