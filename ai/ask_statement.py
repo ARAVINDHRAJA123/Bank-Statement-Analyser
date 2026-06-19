@@ -1,25 +1,19 @@
 """
 Ask-your-statement: an agentic text-to-SQL assistant over the BigQuery marts.
 
-You ask a plain-English question ("how much did I spend on food in March?");
-Claude is given ONE tool — `run_sql` — and runs the agent loop itself: it writes
-a BigQuery SELECT, the tool executes it (behind a read-only safety wall), Claude
-reads the rows, and answers in plain English.
+You ask a plain-English question ("how much did I spend on food in March?"); the
+model is given ONE tool — run a read-only SQL query — and runs the agent loop: it
+writes a BigQuery SELECT, the tool executes it (behind a read-only safety wall),
+the model reads the rows, and answers in plain English.
 
-This is the "agentic" pattern: the model decides to act (call the tool), observes
-the result, and continues until it can answer — we control the loop and gate the
-single action.
+Works on either provider, chosen by whichever key is set (see ai/llm.py):
+    ANTHROPIC_API_KEY  -> Claude (paid)        GEMINI_API_KEY -> Gemini (free tier)
 
-Safety wall (mirrors a preview-only / no-destructive-actions design):
-  * read-only — only SELECT / WITH queries run; any DML/DDL is rejected
-  * scoped — queries must reference the `analytics` dataset only
-  * capped — maximum_bytes_billed stops a query from ever running up a bill
-  * fail-clean — a rejected or failing query returns an error to the model
-    (which can correct its SQL), never an unsafe retry
+Safety wall (same for both providers): read-only (SELECT/WITH only; DML/DDL
+rejected), scoped to the `analytics` dataset, and capped by maximum_bytes_billed.
 
 Run:
-    pip install anthropic
-    set ANTHROPIC_API_KEY, GCP_PROJECT, BQ_LOCATION
+    set ANTHROPIC_API_KEY  (or GEMINI_API_KEY), GCP_PROJECT, BQ_LOCATION
     python ai/ask_statement.py "how much did I spend on food, by month?"
 """
 from __future__ import annotations
@@ -29,17 +23,16 @@ import os
 import re
 import sys
 
-import anthropic
 from google.cloud import bigquery
+
+from ai.llm import ANTHROPIC_MODEL, GEMINI_MODEL, NO_KEY_MESSAGE, gemini_api_key, get_provider
 
 PROJECT  = os.environ.get("GCP_PROJECT", "n8n-upi-tracker")
 LOCATION = os.environ.get("BQ_LOCATION", "asia-south1")
 DATASET  = "analytics"
-MODEL    = "claude-opus-4-8"
 MAX_BYTES_BILLED = 100_000_000   # 100 MB scan cap — this workload scans KB
 MAX_ROWS = 100                   # rows returned to the model per query
 
-# Schema the model is allowed to query (the star-schema marts + aggregates).
 SCHEMA_DOC = f"""
 Dataset: `{PROJECT}.{DATASET}` (BigQuery Standard SQL). Always fully-qualify
 tables as `{PROJECT}.{DATASET}.<table>`.
@@ -67,35 +60,13 @@ warehouse in BigQuery. Answer the user's question by querying the data.
 {SCHEMA_DOC}
 
 Rules:
-- Use the `run_sql` tool to fetch data; never invent numbers.
+- Use the run_sql tool to fetch data; never invent numbers.
 - Write read-only BigQuery Standard SQL (SELECT / WITH only). Fully-qualify every
   table. Aggregate in SQL rather than pulling raw rows when you can.
-- Spending = debit_amount; income = credit_amount. Amounts are in INR (₹).
+- Spending = debit_amount; income = credit_amount. Amounts are in INR.
 - After you have the data, reply in plain English, lead with the number(s), and
   keep it concise. If a query is rejected or errors, read the message and fix the
   SQL rather than repeating it.""".strip()
-
-TOOLS = [{
-    "name": "run_sql",
-    "description": (
-        "Run a read-only BigQuery Standard SQL query (SELECT/WITH only) against "
-        f"the {PROJECT}.{DATASET} dataset and return up to {MAX_ROWS} rows as JSON. "
-        "Use this whenever you need data to answer the question."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": (
-                    "A BigQuery Standard SQL SELECT query. Fully-qualify tables as "
-                    f"`{PROJECT}.{DATASET}.<table>`."
-                ),
-            }
-        },
-        "required": ["query"],
-    },
-}]
 
 # ── the safety wall ─────────────────────────────────────────────────────────
 _FORBIDDEN = re.compile(
@@ -106,24 +77,19 @@ _STARTS_OK = re.compile(r"^\s*(with|select)\b", re.IGNORECASE | re.DOTALL)
 
 
 def _is_read_only(sql: str) -> bool:
-    """A query passes only if it starts with SELECT/WITH and contains no
-    data-/schema-modifying keyword."""
     stripped = sql.strip().rstrip(";")
     return bool(_STARTS_OK.match(stripped)) and not _FORBIDDEN.search(stripped)
 
 
 def _references_only_analytics(sql: str) -> bool:
-    """Best-effort scope check: every table after FROM/JOIN must live in the
-    analytics dataset. The byte cap is the hard backstop."""
     refs = re.findall(r"\b(?:from|join)\s+`?([\w.\-]+)`?", sql, re.IGNORECASE)
     for ref in refs:
-        # allow CTE names (no dots) and analytics-qualified tables only
         if "." in ref and f".{DATASET}." not in f".{ref}.":
             return False
     return True
 
 
-def run_sql(query: str, client: bigquery.Client) -> dict:
+def run_query(query: str, client: bigquery.Client) -> dict:
     """Execute a vetted read-only query and return rows (or a clean error)."""
     if not _is_read_only(query):
         return {"error": "Rejected: only read-only SELECT/WITH queries are allowed."}
@@ -136,51 +102,82 @@ def run_sql(query: str, client: bigquery.Client) -> dict:
     try:
         rows = [dict(r) for r in client.query(query, job_config=job_config).result(max_results=MAX_ROWS)]
         return {"row_count": len(rows), "rows": rows}
-    except Exception as e:  # surface a clean message so the model can fix its SQL
+    except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
 
 
-def ask(question: str, verbose: bool = False) -> str:
-    """Run the agentic loop and return Claude's plain-English answer."""
+# ── Claude path: manual tool-use loop ───────────────────────────────────────
+def _ask_anthropic(question: str, verbose: bool) -> str:
+    import anthropic
+
     client = anthropic.Anthropic()
     bq = bigquery.Client(project=PROJECT, location=LOCATION)
+    tools = [{
+        "name": "run_sql",
+        "description": (
+            "Run a read-only BigQuery Standard SQL query (SELECT/WITH only) and "
+            f"return up to {MAX_ROWS} rows as JSON."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "A SELECT query."}},
+            "required": ["query"],
+        },
+    }]
     messages: list[dict] = [{"role": "user", "content": question}]
 
-    for _ in range(8):  # hard cap on agent turns
+    for _ in range(8):
         resp = client.messages.create(
-            model=MODEL,
-            max_tokens=16000,
-            system=SYSTEM,
-            tools=TOOLS,
-            thinking={"type": "adaptive"},
-            messages=messages,
+            model=ANTHROPIC_MODEL, max_tokens=16000, system=SYSTEM,
+            tools=tools, thinking={"type": "adaptive"}, messages=messages,
         )
-
         if resp.stop_reason == "refusal":
             return "The request was declined by the model's safety system."
-
         if resp.stop_reason == "tool_use":
             messages.append({"role": "assistant", "content": resp.content})
-            tool_results = []
+            results = []
             for block in resp.content:
                 if block.type == "tool_use" and block.name == "run_sql":
                     sql = block.input["query"]
                     if verbose:
                         print(f"\n[run_sql]\n{sql}\n", file=sys.stderr)
-                    out = run_sql(sql, bq)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": json.dumps(out, default=str),
-                        "is_error": "error" in out,
+                    out = run_query(sql, bq)
+                    results.append({
+                        "type": "tool_result", "tool_use_id": block.id,
+                        "content": json.dumps(out, default=str), "is_error": "error" in out,
                     })
-            messages.append({"role": "user", "content": tool_results})
+            messages.append({"role": "user", "content": results})
             continue
-
-        # end_turn — return the answer text
         return "".join(b.text for b in resp.content if b.type == "text").strip()
-
     return "Stopped after too many steps without a final answer."
+
+
+# ── Gemini path: automatic function calling (free tier) ─────────────────────
+def _ask_gemini(question: str, verbose: bool) -> str:
+    import google.generativeai as genai
+
+    genai.configure(api_key=gemini_api_key())
+    bq = bigquery.Client(project=PROJECT, location=LOCATION)
+
+    def run_sql(query: str) -> str:
+        """Run a read-only BigQuery SELECT/WITH query against the analytics dataset and return rows as JSON."""
+        if verbose:
+            print(f"\n[run_sql]\n{query}\n", file=sys.stderr)
+        return json.dumps(run_query(query, bq), default=str)
+
+    model = genai.GenerativeModel(GEMINI_MODEL, tools=[run_sql], system_instruction=SYSTEM)
+    chat = model.start_chat(enable_automatic_function_calling=True)
+    return chat.send_message(question).text.strip()
+
+
+def ask(question: str, verbose: bool = False) -> str:
+    """Run the agentic loop on whichever provider has a key set."""
+    provider = get_provider()
+    if provider == "anthropic":
+        return _ask_anthropic(question, verbose)
+    if provider == "gemini":
+        return _ask_gemini(question, verbose)
+    raise RuntimeError(NO_KEY_MESSAGE)
 
 
 def main() -> None:

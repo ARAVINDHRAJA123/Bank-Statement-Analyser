@@ -48,6 +48,39 @@ def _looks_like_pdf(data: bytes) -> bool:
     return data[:5] == b"%PDF-"
 
 
+# Minimal web UI for the /ask text-to-SQL assistant (served at GET /).
+ASK_PAGE = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask your statement</title>
+<style>
+ body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:680px;
+   margin:40px auto;padding:0 16px;color:#0f172a;line-height:1.6}
+ h1{font-size:1.5rem;margin:0 0 4px} p{color:#64748b;margin:0 0 20px}
+ form{display:flex;gap:8px} input{flex:1;padding:11px 14px;border:1px solid #cbd5e1;
+   border-radius:10px;font-size:1rem} button{padding:11px 18px;border:0;border-radius:10px;
+   background:#4f46e5;color:#fff;font-weight:600;cursor:pointer}
+ #out{margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;
+   border-radius:10px;white-space:pre-wrap;min-height:28px}
+</style></head><body>
+<h1>💬 Ask your statement</h1>
+<p>Ask a question about your transactions — the AI writes the query and answers.</p>
+<form id="f">
+  <input id="q" autocomplete="off"
+    placeholder="e.g. how much did I spend on food, by month?">
+  <button>Ask</button>
+</form>
+<div id="out"></div>
+<script>
+ const f=document.getElementById('f'),q=document.getElementById('q'),out=document.getElementById('out');
+ f.onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;out.textContent='Thinking…';
+  try{const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({question:q.value})});const d=await r.json();
+   out.textContent=d.answer||('Error: '+(d.error||('HTTP '+r.status)));}
+  catch(err){out.textContent='Error: '+err;}};
+</script></body></html>"""
+
+
 @app.post("/analyse")
 def analyse_endpoint():
     pdf_data = request.get_data()
@@ -126,6 +159,12 @@ def ask_endpoint():
     except Exception as e:
         log.exception("ask endpoint failed")
         return jsonify(error=f"{type(e).__name__}: {e}"), 500
+
+
+@app.get("/")
+def home():
+    """Minimal web UI for asking the text-to-SQL assistant a question."""
+    return ASK_PAGE
 
 
 @app.get("/health")

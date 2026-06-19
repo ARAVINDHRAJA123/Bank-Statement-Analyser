@@ -196,7 +196,8 @@ regressions are caught automatically.
 
 ## 🧠 AI Features (agentic, on the warehouse)
 
-Two optional AI features run on top of the BigQuery marts, using the Claude API.
+Two optional AI features run on top of the BigQuery marts. They run on **Claude**
+(paid) **or a free Google Gemini key** — the code auto-selects whichever you set.
 
 **1. Ask-your-statement — agentic text-to-SQL** ([`ai/ask_statement.py`](ai/ask_statement.py)).
 Ask a plain-English question; Claude is given one tool (`run_sql`) and runs the
@@ -204,8 +205,9 @@ agent loop itself — writes a query, runs it, reads the rows, and answers:
 ```bash
 python ai/ask_statement.py "how much did I spend on food, by month?"
 ```
-It's also exposed as a **`POST /ask`** endpoint on the Flask server (so n8n or a
-web UI can call it); the endpoint degrades gracefully if the AI deps/key are absent.
+You can ask it three ways: the **CLI** above, a **web UI** (run `python server.py`
+and open **http://localhost:5050/**), or the **`POST /ask`** HTTP endpoint (for
+n8n / other apps). The endpoint degrades gracefully if the AI deps/key are absent.
 
 **2. Anomaly explainer — batch enrichment** ([`ai/explain_anomalies.py`](ai/explain_anomalies.py)).
 Turns each flagged transaction into a one-sentence plain-English reason:
@@ -219,8 +221,12 @@ python ai/explain_anomalies.py --write    # also save to analytics.anomaly_expla
 > dataset, and runs under a `maximum_bytes_billed` cap — the model can read and
 > reason over the data but can never modify it or run up a bill.
 
-> **Requirements.** `pip install anthropic` and set `ANTHROPIC_API_KEY` (the
-> Claude API is pay-per-use; the prompts here are tiny). Model: `claude-opus-4-8`.
+> **Provider & key — pick one (auto-detected):**
+> - **Claude:** set `ANTHROPIC_API_KEY` (`pip install anthropic`); model
+>   `claude-opus-4-8`. Pay-per-use (prompts here are tiny).
+> - **Gemini (free):** set `GEMINI_API_KEY` (`pip install google-generativeai`);
+>   model `gemini-2.0-flash`. Free tier, no card — get a key at
+>   [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
 
 ---
 
