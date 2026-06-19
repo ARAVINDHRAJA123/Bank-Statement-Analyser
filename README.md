@@ -16,6 +16,9 @@ Python parser:
 In plain terms: drop in a bank statement, get back a clean spending report *and*
 a queryable history of your transactions.
 
+📘 **New here?** Start with the **[step-by-step Usage Guide](https://aravindhraja123.github.io/Bank-Statement-Analyser/usage.html)**
+— a modern, click-through walkthrough of everything below (or open `docs/usage.html` locally in any browser).
+
 ---
 
 ## 🏗️ Architecture (two paths, one parser)

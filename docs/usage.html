@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Statement Analyser — Usage Guide</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#ffffff; --ink:#0f172a; --muted:#5b6577; --line:#e6e9f0;
+    --code-bg:#0f172a; --code-ink:#e2e8f0; --a:#4f46e5; --a2:#0ea5e9;
+    --tip:#0ea5e9; --warn:#f59e0b; --ok:#10b981; --pink:#ec4899;
+    --shadow:0 1px 2px rgba(15,23,42,.06),0 10px 30px rgba(15,23,42,.06);
+    --sidebar:280px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0b1020; --panel:#121829; --ink:#e8ecf5; --muted:#9aa6bd; --line:#22304a;
+    --code-bg:#060a15; --code-ink:#d7e0f2; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--a);text-decoration:none} a:hover{text-decoration:underline}
+  code{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.9em;
+    background:rgba(99,102,241,.12);padding:1px 6px;border-radius:5px}
+  /* layout */
+  .shell{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh}
+  /* sidebar */
+  aside{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    background:var(--panel);border-right:1px solid var(--line);padding:22px 16px}
+  aside .brand{font-weight:800;font-size:1.05rem;letter-spacing:-.01em;margin:0 0 2px}
+  aside .sub{color:var(--muted);font-size:.8rem;margin:0 0 18px}
+  nav a{display:block;color:var(--muted);padding:7px 12px;border-radius:8px;font-size:.9rem;
+    border-left:3px solid transparent}
+  nav a:hover{background:rgba(99,102,241,.08);text-decoration:none;color:var(--ink)}
+  nav a.active{color:var(--a);background:rgba(99,102,241,.10);border-left-color:var(--a);font-weight:600}
+  nav .grp{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    margin:16px 12px 6px;opacity:.8}
+  /* main */
+  main{padding:0 0 80px}
+  .hero{background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff;padding:54px 48px 46px}
+  .hero h1{margin:0 0 8px;font-size:2.1rem;letter-spacing:-.02em}
+  .hero p{margin:0;opacity:.95;max-width:720px;font-size:1.08rem}
+  .badges{margin-top:18px;display:flex;flex-wrap:wrap;gap:7px}
+  .badge{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+    padding:4px 11px;border-radius:999px;font-size:.78rem;font-weight:600}
+  .content{padding:8px 48px;max-width:900px}
+  section{padding:30px 0;border-bottom:1px solid var(--line)}
+  section h2{font-size:1.5rem;margin:8px 0 4px;letter-spacing:-.01em;scroll-margin-top:20px}
+  section h3{font-size:1.06rem;margin:22px 0 6px}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--a);background:rgba(99,102,241,.12);
+    padding:3px 9px;border-radius:6px;margin-bottom:8px}
+  /* steps */
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+  ol.steps>li{position:relative;padding:2px 0 18px 44px;margin:0}
+  ol.steps>li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:0;
+    width:30px;height:30px;border-radius:50%;background:var(--a);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+  ol.steps>li::after{content:"";position:absolute;left:14px;top:32px;bottom:0;width:2px;background:var(--line)}
+  ol.steps>li:last-child::after{display:none}
+  /* code block + copy */
+  .code{position:relative;margin:12px 0}
+  .code pre{background:var(--code-bg);color:var(--code-ink);padding:15px 16px;border-radius:12px;
+    overflow:auto;margin:0;font-family:ui-monospace,Consolas,monospace;font-size:.86rem;line-height:1.55}
+  .code .copy{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.12);color:#cbd5e1;
+    border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:4px 10px;font-size:.72rem;
+    cursor:pointer;font-weight:600}
+  .code .copy:hover{background:rgba(255,255,255,.22);color:#fff}
+  /* callouts */
+  .callout{border-radius:12px;padding:13px 16px;margin:14px 0;border:1px solid var(--line);
+    background:var(--panel);box-shadow:var(--shadow);font-size:.94rem}
+  .callout.tip{border-left:4px solid var(--tip)}
+  .callout.warn{border-left:4px solid var(--warn)}
+  .callout.ok{border-left:4px solid var(--ok)}
+  .callout b{display:block;margin-bottom:2px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
+  .pill{display:inline-block;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:999px}
+  .pill.a{background:rgba(79,70,229,.14);color:var(--a)} .pill.b{background:rgba(14,165,233,.16);color:#0284c7}
+  pre.ascii{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:12px;
+    padding:14px;overflow:auto;font-size:.8rem;line-height:1.4}
+  /* top bar */
+  .topbar{display:flex;justify-content:flex-end;gap:10px;padding:14px 48px 0}
+  .toggle{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:10px;
+    padding:8px 14px;font-size:.85rem;cursor:pointer;font-weight:600;box-shadow:var(--shadow)}
+  .menu-btn{display:none}
+  footer{padding:26px 48px;color:var(--muted);font-size:.85rem}
+  @media(max-width:860px){
+    .shell{grid-template-columns:1fr}
+    aside{position:fixed;z-index:30;width:var(--sidebar);transform:translateX(-100%);transition:.25s}
+    aside.open{transform:none}
+    .menu-btn{display:inline-block}
+    .hero,.content,.topbar,footer{padding-left:20px;padding-right:20px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside id="side">
+    <p class="brand">💳 Bank Statement Analyser</p>
+    <p class="sub">Usage guide · 2026</p>
+    <nav id="nav">
+      <a href="#overview">Overview</a>
+      <a href="#architecture">How it fits together</a>
+      <div class="grp">Get set up</div>
+      <a href="#prereqs">1 · Prerequisites</a>
+      <a href="#setup">2 · Install</a>
+      <div class="grp">Use it</div>
+      <a href="#excel">A · Excel report</a>
+      <a href="#n8n">B · n8n automation</a>
+      <a href="#warehouse">C · BigQuery + dbt</a>
+      <a href="#airflow">D · Airflow</a>
+      <a href="#dashboard">E · Dashboard</a>
+      <a href="#ai">F · AI assistant</a>
+      <div class="grp">Reference</div>
+      <a href="#tests">Tests &amp; CI</a>
+      <a href="#docs">dbt docs</a>
+      <a href="#trouble">Troubleshooting</a>
+      <a href="#glossary">Glossary</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="topbar">
+      <button class="toggle menu-btn" onclick="document.getElementById('side').classList.toggle('open')">☰ Menu</button>
+      <button class="toggle" id="themeBtn">🌙 Dark</button>
+    </div>
+
+    <div class="hero">
+      <h1>Bank Statement Analyser — Usage Guide</h1>
+      <p>Everything a new person needs to run this project end to end: turn a bank-statement PDF
+         into an Excel report, a tested BigQuery warehouse, a dashboard, and ask it questions in plain English.</p>
+      <div class="badges">
+        <span class="badge">Python</span><span class="badge">BigQuery</span><span class="badge">dbt</span>
+        <span class="badge">Airflow</span><span class="badge">n8n</span><span class="badge">Looker Studio</span>
+        <span class="badge">Claude / Gemini</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+    <section id="overview">
+      <span class="tag">Start here</span>
+      <h2>What is this project?</h2>
+      <p>You drop in a bank-statement PDF. The project reads every transaction, cleans it, labels it
+        (food, transport, salary…), and flags unusually large spends. From there it does two things:</p>
+      <ul>
+        <li><b>Path A — instant report:</b> emails you a tidy <b>Excel report</b> (automated with n8n).</li>
+        <li><b>Path B — analytics warehouse:</b> stores your transactions in <b>BigQuery</b>, models them with
+          <b>dbt</b>, shows charts in a <b>dashboard</b>, and lets you <b>ask questions in plain English</b>.</li>
+      </ul>
+      <div class="callout tip"><b>💡 You don't need all of it.</b> Each part works on its own.
+        Want just the Excel report? Do sections 1, 2, A. Want the warehouse + AI? Do 1, 2, C, F.</div>
+    </section>
+
+    <section id="architecture">
+      <h2>How it fits together</h2>
+      <p>One parser feeds two paths. Both share the same code and the same category rules.</p>
+      <pre class="ascii">                 Bank statement PDF
+                        │
+            Bank_Statement_Analyser.py  (parse → clean → categorise)
+                  │                         │
+        PATH A (report)            PATH B (analytics)
+                  │                         │
+        server.py (Flask)          load_to_bigquery.py
+                  ▲                         │
+             n8n workflow          raw.bank_transactions (BigQuery)
+                  │                         │
+   Excel → Drive/Telegram/Email    dbt: stg → int → fct → dims/aggs
+                                            │
+                                   Dashboard · AI assistant · dbt docs
+                                            ▲
+                                      Airflow (schedule)</pre>
+    </section>
+
+    <section id="prereqs">
+      <span class="tag">Get set up</span>
+      <h2>1 · Prerequisites</h2>
+      <table>
+        <tr><th>You need</th><th>For</th><th>Notes</th></tr>
+        <tr><td><b>Python 3.10+</b></td><td>analyser, server, loader</td><td>This project was run on 3.14.</td></tr>
+        <tr><td><b>A Python 3.12 venv</b></td><td>dbt</td><td>dbt runs in its own venv (e.g. <code>~/dbt-venv</code>).</td></tr>
+        <tr><td><b>Google Cloud SDK</b> + a GCP project</td><td>BigQuery (Path B)</td><td>With <b>billing enabled</b> (needed for dbt incremental).</td></tr>
+        <tr><td><b>Node.js 18+</b></td><td>n8n (Path A)</td><td>Only if you want the automation.</td></tr>
+        <tr><td>A text-based HDFC PDF</td><td>input</td><td>Must be selectable text, not a scanned image.</td></tr>
+      </table>
+      <div class="callout warn"><b>⚠️ Never commit financial data.</b> The repo's <code>.gitignore</code>
+        blocks <code>*.pdf</code>, <code>*.xlsx</code>, <code>*.png</code>. Keep statements and reports out of git.</div>
+    </section>
+
+    <section id="setup">
+      <h2>2 · Install</h2>
+      <ol class="steps">
+        <li><b>Get the code.</b>
+          <div class="code"><pre>git clone https://github.com/ARAVINDHRAJA123/Bank-Statement-Analyser.git
+cd Bank-Statement-Analyser</pre></div>
+        </li>
+        <li><b>Install Python dependencies.</b>
+          <div class="code"><pre>pip install -r requirements.txt</pre></div>
+        </li>
+        <li><b>(Path B only) Set up dbt in its own venv.</b>
+          <div class="code"><pre>python -m venv ~/dbt-venv
+~/dbt-venv/Scripts/Activate.ps1          # Windows PowerShell
+pip install dbt-bigquery</pre></div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="excel">
+      <span class="tag">Use it · Path A</span>
+      <h2>A · Generate the Excel report</h2>
+      <p>The simplest thing: turn a PDF into a formatted Excel report on your own machine.</p>
+      <ol class="steps">
+        <li><b>Run the analyser</b> on your statement (defaults to <code>Account Statement.pdf</code> if no path given).
+          <div class="code"><pre>python Bank_Statement_Analyser.py "your statement.pdf"</pre></div>
+        </li>
+        <li><b>Open the result</b> — <code>Bank_Statement_Report.xlsx</code> — for 6 sheets: summary, transactions,
+          monthly, categories, top merchants, and anomalies.</li>
+      </ol>
+      <div class="callout tip"><b>💡 Edit spending categories</b> in
+        <code>dbt_bank/seeds/category_keywords.csv</code> — one file that both the report and the warehouse read.</div>
+    </section>
+
+    <section id="n8n">
+      <h2>B · n8n automation (auto-report from Google Drive)</h2>
+      <p>Drop a PDF in Google Drive → get the report on Telegram &amp; Email automatically.</p>
+      <ol class="steps">
+        <li><b>Start the Flask server</b> (the bridge n8n calls).
+          <div class="code"><pre>python server.py</pre></div>
+        </li>
+        <li><b>Start n8n</b> and import the workflow.
+          <div class="code"><pre>npm install -g n8n
+n8n start</pre></div>
+          Open <code>http://localhost:5678</code> → import <code>workflow_automation.json</code>.
+        </li>
+        <li><b>Add credentials in n8n:</b> Google Drive (OAuth2), Telegram (bot token + chat ID), Email (SMTP / Gmail app password).</li>
+        <li><b>Create Drive folders:</b> <code>Bank Statements</code> (upload here) and <code>Bank Statement Reports</code> (output).</li>
+        <li><b>Publish the workflow</b>, then drop a PDF in the Drive folder and watch the report arrive.</li>
+      </ol>
+    </section>
+
+    <section id="warehouse">
+      <span class="tag">Use it · Path B</span>
+      <h2>C · BigQuery + dbt warehouse</h2>
+      <p>Load transactions into BigQuery and model them into a tested star schema.</p>
+      <ol class="steps">
+        <li><b>Authenticate</b> to Google Cloud (once).
+          <div class="code"><pre>gcloud auth application-default login</pre></div>
+        </li>
+        <li><b>Set the project + region</b> (use your own values).
+          <div class="code"><pre>$env:GCP_PROJECT="n8n-upi-tracker"
+$env:BQ_LOCATION="asia-south1"
+$env:PYTHONIOENCODING="utf-8"</pre></div>
+        </li>
+        <li><b>Load a statement</b> into <code>raw.bank_transactions</code>.
+          <div class="code"><pre>python load_to_bigquery.py "your statement.pdf"</pre></div>
+        </li>
+        <li><b>Build + test the models</b> (from the dbt venv).
+          <div class="code"><pre>cd dbt_bank
+dbt debug          # check the connection
+dbt build          # seeds + models + tests (fct_transactions is incremental)</pre></div>
+        </li>
+      </ol>
+      <div class="callout warn"><b>⚠️ Two things that bite everyone.</b>
+        (1) The <code>raw</code> dataset, the dbt profile, and the loader must all use the <b>same region</b>
+        (<code>BQ_LOCATION</code>). (2) The incremental model uses a SQL <code>MERGE</code>, which needs
+        <b>BigQuery billing enabled</b> — the free sandbox blocks it.</div>
+      <div class="callout tip"><b>💡 Re-score after a big data change:</b>
+        <code>dbt build --full-refresh</code> rebuilds the fact table from scratch.</div>
+    </section>
+
+    <section id="airflow">
+      <h2>D · Airflow (run Path B on a schedule)</h2>
+      <p>The DAG (<code>airflow/dags/bank_statement_pipeline.py</code>) chains: ingest → load → dbt build → notify.</p>
+      <div class="callout tip"><b>💡 You usually don't need Airflow to run.</b> The DAG just automates the
+        commands in section C. Run them by hand and you've done exactly what it does. Airflow doesn't run natively
+        on Windows (needs WSL2 or Docker — often blocked on corporate machines). See <code>airflow/README.md</code>.</div>
+    </section>
+
+    <section id="dashboard">
+      <h2>E · Dashboard (Looker Studio)</h2>
+      <ol class="steps">
+        <li>Open <a href="https://lookerstudio.google.com" target="_blank" rel="noopener">lookerstudio.google.com</a>
+          → <b>Blank report</b> → <b>BigQuery</b> connector → your project → <code>analytics</code> dataset.</li>
+        <li>Add charts from the marts: KPI scorecards + monthly income/expense (<code>agg_monthly_summary</code>),
+          spend by category (<code>agg_category_spend</code>), top merchants &amp; anomalies (<code>fct_transactions</code>).</li>
+      </ol>
+      <div class="callout warn"><b>⚠️ Don't share a dashboard of real transactions publicly.</b>
+        Screenshot it blurred, or rebuild on a sample statement.</div>
+    </section>
+
+    <section id="ai">
+      <h2>F · AI assistant (ask questions in plain English)</h2>
+      <p>Two AI features run on the warehouse, on <b>Claude</b> (paid) <b>or a free Google Gemini key</b> —
+        the code auto-picks whichever key you set.</p>
+
+      <h3>Get a free key (₹0)</h3>
+      <ol class="steps">
+        <li>Get a free Gemini key (Google account, no card) at
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>.</li>
+        <li>Install the library and set the key.
+          <div class="code"><pre>pip install google-generativeai
+$env:GEMINI_API_KEY="your-free-key"
+$env:GCP_PROJECT="n8n-upi-tracker"; $env:BQ_LOCATION="asia-south1"</pre></div>
+        </li>
+      </ol>
+      <div class="callout tip"><b>💡 Prefer Claude?</b> Set <code>ANTHROPIC_API_KEY</code> instead
+        (<code>pip install anthropic</code>). It's auto-detected; everything else is identical.</div>
+
+      <h3>Three ways to ask</h3>
+      <ol class="steps">
+        <li><b>Web UI</b> — start the server and open the page:
+          <div class="code"><pre>python server.py            # then open http://localhost:5050/</pre></div>
+        </li>
+        <li><b>Command line:</b>
+          <div class="code"><pre>python ai/ask_statement.py "how much did I spend on food, by month?"</pre></div>
+        </li>
+        <li><b>HTTP endpoint</b> (for n8n / other apps): <code>POST /ask</code> with <code>{"question": "..."}</code>.</li>
+      </ol>
+
+      <h3>Explain the anomalies</h3>
+      <div class="code"><pre>python ai/explain_anomalies.py            # print plain-English reasons
+python ai/explain_anomalies.py --write    # also save to a BigQuery table</pre></div>
+      <div class="callout ok"><b>✅ Safety wall.</b> The assistant can only run read-only
+        <code>SELECT</code> queries on the <code>analytics</code> dataset, under a scan-size cap — it can read
+        and reason over your data but can never change or delete anything.</div>
+    </section>
+
+    <section id="tests">
+      <span class="tag">Reference</span>
+      <h2>Tests &amp; CI</h2>
+      <p>Run the test suite anytime:</p>
+      <div class="code"><pre>python -m pytest -q</pre></div>
+      <p>Every push to GitHub also runs the tests and validates the dbt models automatically
+        (GitHub Actions). The green “CI passing” badge on the repo means everything still works.</p>
+    </section>
+
+    <section id="docs">
+      <h2>Interactive dbt docs</h2>
+      <p>Browse the model lineage and column docs online (GitHub Pages) or locally:</p>
+      <div class="code"><pre>cd dbt_bank
+dbt docs generate
+dbt docs serve         # opens an interactive lineage graph</pre></div>
+    </section>
+
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <table>
+        <tr><th>Symptom</th><th>Fix</th></tr>
+        <tr><td>“No transactions found”</td><td>The PDF is a scanned image. Use a text-based PDF (you can select/copy its text).</td></tr>
+        <tr><td>dbt fails with a region/location error</td><td>Make <code>BQ_LOCATION</code> match the region of the <code>raw</code> dataset.</td></tr>
+        <tr><td>“Billing has not been enabled … DML not allowed”</td><td>Enable billing on the GCP project — the incremental model needs it. Stays within the free tier.</td></tr>
+        <tr><td>AI says “No LLM key found”</td><td>Set <code>GEMINI_API_KEY</code> (free) or <code>ANTHROPIC_API_KEY</code>.</td></tr>
+        <tr><td>Emoji/unicode error in the terminal (Windows)</td><td>Set <code>$env:PYTHONIOENCODING="utf-8"</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="glossary">
+      <h2>Glossary</h2>
+      <table>
+        <tr><td><b>ELT</b></td><td>Load raw data first, then clean/shape it inside the database (dbt does the “T”).</td></tr>
+        <tr><td><b>Star schema</b></td><td>A central facts table + small lookup tables (dimensions) around it.</td></tr>
+        <tr><td><b>Incremental model</b></td><td>Only adds new rows on each run instead of rebuilding everything.</td></tr>
+        <tr><td><b>Snapshot (SCD2)</b></td><td>Keeps history — records when a value changed, with from/to dates.</td></tr>
+        <tr><td><b>Agentic AI</b></td><td>The model decides to use a tool, sees the result, and continues until it can answer.</td></tr>
+        <tr><td><b>CI</b></td><td>A robot that re-runs the tests on every change so problems are caught early.</td></tr>
+      </table>
+    </section>
+
+    <footer>Bank Statement Analyser · usage guide · open this file in any browser.</footer>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Theme toggle (persisted)
+  const root=document.documentElement, btn=document.getElementById('themeBtn');
+  const saved=localStorage.getItem('theme');
+  if(saved) root.setAttribute('data-theme',saved);
+  else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches) root.setAttribute('data-theme','dark');
+  const syncBtn=()=>btn.textContent=root.getAttribute('data-theme')==='dark'?'☀️ Light':'🌙 Dark';
+  syncBtn();
+  btn.onclick=()=>{const t=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',t);localStorage.setItem('theme',t);syncBtn();};
+
+  // Copy buttons on every code block
+  document.querySelectorAll('.code').forEach(box=>{
+    const b=document.createElement('button');b.className='copy';b.textContent='Copy';
+    b.onclick=()=>{const txt=box.querySelector('pre').innerText;
+      navigator.clipboard.writeText(txt).then(()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1400);});};
+    box.appendChild(b);
+  });
+
+  // Scroll-spy: highlight the section in view
+  const links=[...document.querySelectorAll('#nav a')];
+  const byId=Object.fromEntries(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+    links.forEach(a=>a.classList.remove('active'));byId[e.target.id]?.classList.add('active');}});},
+    {rootMargin:'-10% 0px -80% 0px'});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+
+  // Close mobile menu after navigating
+  document.querySelectorAll('#nav a').forEach(a=>a.onclick=()=>document.getElementById('side').classList.remove('open'));
+</script>
+</body>
+</html>
