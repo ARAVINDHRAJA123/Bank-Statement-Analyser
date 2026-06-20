@@ -16,7 +16,8 @@
     --grad:linear-gradient(105deg,#4f46e5,#0ea5e9);
     --tip:#0ea5e9; --tip-bg:#e8f6fd; --warn:#b45309; --warn-bg:#fff7ed; --ok:#0f766e; --ok-bg:#ecfdf5;
     --shadow:0 1px 2px rgba(10,37,64,.06),0 14px 40px -18px rgba(10,37,64,.18);
-    --glow:none;
+    --glow:radial-gradient(900px 520px at 92% -6%,rgba(79,70,229,.07),transparent 60%),
+           radial-gradient(760px 480px at -2% 3%,rgba(14,165,233,.06),transparent 58%);
     --f-display:'Bricolage Grotesque',system-ui,sans-serif;
     --f-body:'Inter',system-ui,sans-serif;
     --f-mono:'JetBrains Mono',ui-monospace,monospace;
@@ -64,7 +65,8 @@
 
   /* ---------- main ---------- */
   main{padding:0 0 90px;min-width:0}
-  .hero{padding:70px 56px 52px;border-bottom:1px solid var(--line);position:relative}
+  .hero{padding:70px 0 52px;border-bottom:1px solid var(--line);position:relative}
+  .hwrap{max-width:1040px;margin:0 auto;padding:0 56px}
   .eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--f-mono);font-size:11.5px;
     letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border:1px solid var(--line-2);
     border-radius:100px;padding:6px 14px;margin-bottom:24px}
@@ -78,7 +80,7 @@
   .badge{font-family:var(--f-mono);font-size:11.5px;color:var(--ink-2);background:var(--panel);
     border:1px solid var(--line);border-radius:8px;padding:5px 11px}
 
-  .content{padding:0 56px;max-width:920px}
+  .content{padding:0 56px;max-width:1040px;margin:0 auto}
   section{padding:40px 0;border-bottom:1px solid var(--line);scroll-margin-top:16px}
   section:last-child{border-bottom:none}
   .sec-head{display:grid;grid-template-columns:74px 1fr;gap:20px;align-items:baseline;margin-bottom:18px}
@@ -158,6 +160,14 @@
   .theme-fab:hover{filter:brightness(1.06);transform:translateY(-2px)}
   .theme-fab .ic{font-size:17px;line-height:1}
   @keyframes fabpop{0%,100%{transform:none}10%,30%{transform:translateY(-4px)}}
+  .theme-fab:active{transform:scale(.94)}
+  nav a,.cmd .copy,details.ts summary{transition:transform .12s ease, background .15s, color .15s}
+  nav a:active,.cmd .copy:active{transform:scale(.96)}
+
+  /* Material-style theme wipe — the new theme expands from the toggle button */
+  ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+  ::view-transition-new(root){z-index:2147483646}
+  ::view-transition-old(root){z-index:1}
 
   footer{padding:30px 56px;color:var(--muted);font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em}
 
@@ -168,7 +178,7 @@
     aside.open{left:0}
     .menu-btn{display:grid;place-items:center;position:fixed;top:14px;left:14px;z-index:70;width:44px;height:44px;
       border-radius:11px;background:var(--ink);color:var(--bg);border:none;cursor:pointer;font-size:18px}
-    .hero,.content,footer{padding-left:20px;padding-right:20px}
+    .hwrap,.content,footer{padding-left:20px;padding-right:20px}
     .sec-head{grid-template-columns:1fr;gap:2px}.sec-idx{font-size:46px}.sec-body{padding-left:0}
   }
   @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.theme-fab{animation:none}html{scroll-behavior:auto}}
@@ -204,7 +214,7 @@
   </aside>
 
   <main>
-    <div class="hero">
+    <div class="hero"><div class="hwrap">
       <div class="eyebrow"><span class="dot"></span> Step-by-step · everything you need</div>
       <h1>Run the <span class="g">Bank Statement Analyser</span>, end to end.</h1>
       <p class="lede">Turn a bank-statement PDF into a clean Excel report, a tested BigQuery warehouse,
@@ -214,7 +224,7 @@
         <span class="badge">Airflow</span><span class="badge">n8n</span><span class="badge">Looker Studio</span>
         <span class="badge">Claude / Gemini</span>
       </div>
-    </div>
+    </div></div>
 
     <div class="content">
 
@@ -504,8 +514,20 @@ dbt docs serve         <span class="cm"># interactive lineage graph</span></pre>
   else if(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) root.setAttribute('data-theme','dark');
   const sync=()=>{const d=root.getAttribute('data-theme')==='dark';ic.textContent=d?'☀️':'🌙';lbl.textContent=d?'Light mode':'Dark mode';};
   sync();
-  fab.onclick=()=>{const t=root.getAttribute('data-theme')==='dark'?'light':'dark';
-    root.setAttribute('data-theme',t);localStorage.setItem('theme',t);sync();};
+  const applyTheme=t=>{root.setAttribute('data-theme',t);localStorage.setItem('theme',t);sync();};
+  fab.onclick=()=>{
+    const t=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Material-style spread from the button (View Transitions API), graceful fallback otherwise
+    if(!document.startViewTransition||reduce){applyTheme(t);return;}
+    const r=fab.getBoundingClientRect(), x=r.left+r.width/2, y=r.top+r.height/2;
+    const end=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+    document.startViewTransition(()=>applyTheme(t)).ready.then(()=>
+      document.documentElement.animate(
+        {clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${end}px at ${x}px ${y}px)`]},
+        {duration:620,easing:'cubic-bezier(.22,.61,.36,1)',pseudoElement:'::view-transition-new(root)'}
+      ));
+  };
 
   // ----- copy buttons on every terminal block -----
   document.querySelectorAll('.cmd').forEach(box=>{
