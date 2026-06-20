@@ -59,28 +59,38 @@ ASK_PAGE = """<!DOCTYPE html>
    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
    background:#eef1f7;background-image:radial-gradient(800px 400px at 90% -5%,rgba(79,70,229,.10),transparent 60%),
    radial-gradient(700px 380px at 0% 100%,rgba(14,165,233,.10),transparent 60%)}
- .app{width:100%;max-width:800px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 14px}
- header{padding:20px 6px 10px}
- header h1{margin:0;font-size:1.4rem;letter-spacing:-.01em}
+ .app{width:100%;max-width:820px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 14px}
+ header{padding:18px 6px 8px}
+ header h1{margin:0;font-size:1.35rem;letter-spacing:-.01em}
  header p{margin:4px 0 0;color:#64748b;font-size:.9rem}
- .chat{flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;min-height:0}
- .msg{max-width:84%;padding:11px 15px;border-radius:16px;white-space:pre-wrap;line-height:1.55;
+ .chat{flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:14px;min-height:0;scroll-behavior:smooth}
+ .row{display:flex;gap:10px;align-items:flex-start;animation:pop .32s cubic-bezier(.2,.7,.3,1)}
+ .row.user{flex-direction:row-reverse}
+ @keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+ .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:14px;font-weight:700;margin-top:2px}
+ .avatar.bot{background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff}
+ .avatar.user{background:#dbe2ee}
+ .bubble{max-width:78%;padding:11px 15px;border-radius:16px;white-space:pre-wrap;line-height:1.55;
    font-size:.96rem;box-shadow:0 1px 2px rgba(15,23,42,.07)}
- .msg.user{align-self:flex-end;background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff;border-bottom-right-radius:5px}
- .msg.bot{align-self:flex-start;background:#fff;border:1px solid #e6e9f0;border-bottom-left-radius:5px}
- .msg.err{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
+ .row.user .bubble{background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff;border-bottom-right-radius:5px}
+ .row.bot .bubble{background:#fff;border:1px solid #e6e9f0;border-bottom-left-radius:5px}
+ .row.err .bubble{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
+ .caret::after{content:'▋';color:#a3aec2;margin-left:1px;animation:blink 1s steps(1) infinite}
+ @keyframes blink{50%{opacity:0}}
  .dots span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:#94a3b8;animation:b 1s infinite}
  .dots span:nth-child(2){animation-delay:.15s} .dots span:nth-child(3){animation-delay:.3s}
  @keyframes b{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
- .chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 4px}
+ .chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 4px 2px 44px}
  .chip{font-size:.82rem;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;
-   padding:6px 12px;cursor:pointer}
- .chip:hover{background:#e0e7ff}
+   padding:6px 12px;cursor:pointer;transition:.15s}
+ .chip:hover{background:#e0e7ff;transform:translateY(-1px)}
  .composer{display:flex;gap:8px;padding:10px 4px 16px}
- textarea{flex:1;resize:none;max-height:140px;padding:12px 15px;border:1px solid #cbd5e1;border-radius:16px;
+ textarea{flex:1;resize:none;max-height:150px;padding:12px 15px;border:1px solid #cbd5e1;border-radius:16px;
    font:inherit;font-size:1rem;line-height:1.4;background:#fff}
  textarea:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
- .composer button{padding:0 22px;border:0;border-radius:16px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer}
+ .composer button{padding:0 22px;border:0;border-radius:16px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer;transition:.15s}
+ .composer button:hover:not(:disabled){background:#4338ca}
+ .composer button:active{transform:scale(.96)}
  .composer button:disabled{opacity:.5;cursor:default}
 </style></head><body>
 <div class="app">
@@ -89,7 +99,8 @@ ASK_PAGE = """<!DOCTYPE html>
     <p>Ask in plain English — the AI writes the SQL, runs it on your BigQuery data, and answers.</p>
   </header>
   <div class="chat" id="chat">
-    <div class="msg bot">Hi! Ask me anything about your transactions — spending by category, monthly trends, top merchants, anomalies…</div>
+    <div class="row bot"><div class="avatar bot">✦</div>
+      <div class="bubble">Hi! Ask me anything about your transactions — spending by category, monthly trends, top merchants, anomalies…</div></div>
     <div class="chips" id="chips"></div>
   </div>
   <form class="composer" id="f">
@@ -104,22 +115,53 @@ ASK_PAGE = """<!DOCTYPE html>
    "Show my total income vs expense per month.","List my flagged anomalies."];
  examples.forEach(t=>{const c=document.createElement('button');c.type='button';c.className='chip';
    c.textContent=t;c.onclick=()=>{q.value=t;ask();};chips.appendChild(c);});
- function add(text,cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;
-   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
- function thinking(){const d=document.createElement('div');d.className='msg bot';
-   d.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
-   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
- async function ask(){const text=q.value.trim();if(!text)return;
-   add(text,'user');q.value='';q.style.height='auto';send.disabled=true;const t=thinking();
-   try{const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({question:text})});const d=await r.json();t.remove();
-    if(d.answer) add(d.answer.replace(/^[*-] /gm,'• '),'bot');
-    else add('⚠ '+(d.error||('HTTP '+r.status)),'err');}
-   catch(e){t.remove();add('⚠ '+e,'err');}
-   send.disabled=false;q.focus();}
+
+ function add(cls){
+   const r=document.createElement('div');
+   r.className='row '+(cls==='user'?'user':cls==='err'?'err':'bot');
+   const av=document.createElement('div'); av.className='avatar '+(cls==='user'?'user':'bot');
+   av.textContent=cls==='user'?'🧑':'✦';
+   const b=document.createElement('div'); b.className='bubble';
+   r.appendChild(av); r.appendChild(b); chat.appendChild(r); chat.scrollTop=chat.scrollHeight;
+   return {row:r, bubble:b};
+ }
+ function thinking(){
+   const {row,bubble}=add('bot');
+   bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
+   return row;
+ }
+ function typewrite(el,text){               // ChatGPT/Claude-style streamed reveal
+   el.textContent=''; el.classList.add('caret');
+   let i=0; const step=Math.max(2,Math.ceil(text.length/45));
+   (function tick(){ i+=step; el.textContent=text.slice(0,i); chat.scrollTop=chat.scrollHeight;
+     if(i<text.length) requestAnimationFrame(tick); else el.classList.remove('caret'); })();
+ }
+ function friendly(err){
+   const s=String(err);
+   if(/RESOURCE_EXHAUSTED|429|quota/i.test(s))
+     return "⏳ Free-tier limit reached for now. Gemini's free tier allows only a small number of requests "
+          + "per day on gemini-2.5-flash — wait a bit and retry, set GEMINI_MODEL to another model, or use a Claude key.";
+   if(/No LLM key|API_KEY/i.test(s))
+     return "🔑 No AI key set. Set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY, then restart the server.";
+   return "⚠ "+(s.length>240?s.slice(0,240)+'…':s);
+ }
+ async function ask(){
+   const text=q.value.trim(); if(!text) return;
+   add('user').bubble.textContent=text;
+   q.value=''; q.style.height='auto'; send.disabled=true;
+   const t=thinking();
+   try{
+     const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({question:text})});
+     const d=await r.json(); t.remove();
+     if(d.answer) typewrite(add('bot').bubble, d.answer.replace(/^[*-] /gm,'• '));
+     else add('err').bubble.textContent=friendly(d.error||('HTTP '+r.status));
+   }catch(e){ t.remove(); add('err').bubble.textContent=friendly(e); }
+   send.disabled=false; q.focus();
+ }
  f.onsubmit=e=>{e.preventDefault();ask();};
  q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask();}});
- q.addEventListener('input',()=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,140)+'px';});
+ q.addEventListener('input',()=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,150)+'px';});
 </script></body></html>"""
 
 
