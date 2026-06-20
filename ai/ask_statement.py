@@ -154,11 +154,12 @@ def _ask_anthropic(question: str, verbose: bool) -> str:
     return "Stopped after too many steps without a final answer."
 
 
-# ── Gemini path: automatic function calling (free tier) ─────────────────────
+# ── Gemini path: automatic function calling (free tier, google-genai SDK) ────
 def _ask_gemini(question: str, verbose: bool) -> str:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=gemini_api_key())
+    client = genai.Client(api_key=gemini_api_key())
     bq = bigquery.Client(project=PROJECT, location=LOCATION)
 
     def run_sql(query: str) -> str:
@@ -167,8 +168,11 @@ def _ask_gemini(question: str, verbose: bool) -> str:
             print(f"\n[run_sql]\n{query}\n", file=sys.stderr)
         return json.dumps(run_query(query, bq), default=str)
 
-    model = genai.GenerativeModel(GEMINI_MODEL, tools=[run_sql], system_instruction=SYSTEM)
-    chat = model.start_chat(enable_automatic_function_calling=True)
+    # passing a Python function as a tool enables automatic function calling
+    chat = client.chats.create(
+        model=GEMINI_MODEL,
+        config=types.GenerateContentConfig(system_instruction=SYSTEM, tools=[run_sql]),
+    )
     return chat.send_message(question).text.strip()
 
 

@@ -115,12 +115,14 @@ def explain(anomalies: list[dict]) -> list[dict]:
         return json.loads(text)["explanations"]
 
     if provider == "gemini":
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
-        genai.configure(api_key=gemini_api_key())
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        resp = model.generate_content(
-            prompt, generation_config={"response_mime_type": "application/json"}
+        client = genai.Client(api_key=gemini_api_key())
+        resp = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
         return json.loads(resp.text)["explanations"]
 

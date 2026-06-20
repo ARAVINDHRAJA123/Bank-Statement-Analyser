@@ -227,8 +227,8 @@ python ai/explain_anomalies.py --write    # also save to analytics.anomaly_expla
 > **Provider & key — pick one (auto-detected):**
 > - **Claude:** set `ANTHROPIC_API_KEY` (`pip install anthropic`); model
 >   `claude-opus-4-8`. Pay-per-use (prompts here are tiny).
-> - **Gemini (free):** set `GEMINI_API_KEY` (`pip install google-generativeai`);
->   model `gemini-2.0-flash`. Free tier, no card — get a key at
+> - **Gemini (free):** set `GEMINI_API_KEY` (`pip install google-genai`);
+>   model `gemini-2.5-flash`. Free tier, no card — get a key at
 >   [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
 
 ---

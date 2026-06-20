@@ -5,7 +5,7 @@ Pick the provider from whichever API key is present, so the same code runs on
 either a paid Claude key or a free Google AI Studio (Gemini) key:
 
     ANTHROPIC_API_KEY  -> Claude   (claude-opus-4-8)        — pay-per-use
-    GEMINI_API_KEY     -> Gemini   (gemini-2.0-flash)       — free tier, no card
+    GEMINI_API_KEY     -> Gemini   (gemini-2.5-flash)       — free tier, no card
     (or GOOGLE_API_KEY)
 
 Get a free Gemini key at https://aistudio.google.com/app/apikey
@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 def gemini_api_key() -> str | None:

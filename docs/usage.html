@@ -416,7 +416,7 @@ dbt build          <span class="cm"># seeds + models + tests (fct is incremental
             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>.</div></li>
           <li><div>Install the library and set the key.
             <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">powershell</span></div>
-<pre>pip install google-generativeai
+<pre>pip install google-genai
 $env:GEMINI_API_KEY="your-free-key"
 $env:GCP_PROJECT="n8n-upi-tracker"; $env:BQ_LOCATION="asia-south1"</pre></div></div></li>
         </ol>
@@ -498,7 +498,7 @@ $HOME\dbt-venv\Scripts\Activate.ps1
 pip install dbt-bigquery
 dbt --version          <span class="cm"># confirm it works</span></pre></div>
             <p>Keep dbt and the AI library in <strong>separate</strong> environments — installing
-              <code>google-generativeai</code> into the dbt venv downgrades protobuf and breaks dbt.</p>
+              the AI library (<code>google-genai</code>) into the dbt venv can clash with dbt's dependencies.</p>
           </div></details>
       </div>
     </section>
