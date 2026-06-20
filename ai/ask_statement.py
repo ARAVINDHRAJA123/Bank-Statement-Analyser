@@ -25,6 +25,8 @@ import sys
 
 from google.cloud import bigquery
 
+# allow running directly (python ai/ask_statement.py) by putting the repo root on sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai.llm import ANTHROPIC_MODEL, GEMINI_MODEL, NO_KEY_MESSAGE, gemini_api_key, get_provider
 
 PROJECT  = os.environ.get("GCP_PROJECT", "n8n-upi-tracker")
