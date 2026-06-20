@@ -203,7 +203,7 @@ Two optional AI features run on top of the BigQuery marts. They run on **Claude*
 (paid) **or a free Google Gemini key** — the code auto-selects whichever you set.
 
 **1. Ask-your-statement — agentic text-to-SQL** ([`ai/ask_statement.py`](ai/ask_statement.py)).
-Ask a plain-English question; Claude is given one tool (`run_sql`) and runs the
+Ask a plain-English question; the model is given one tool (`run_sql`) and runs the
 agent loop itself — writes a query, runs it, reads the rows, and answers:
 ```bash
 python ai/ask_statement.py "how much did I spend on food, by month?"
@@ -265,7 +265,8 @@ openpyxl>=3.1.0                 # Excel report
 flask>=3.0.0                    # server.py (the n8n bridge)
 google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
 pytest>=8.0.0                  # test suite
-anthropic                      # AI features (ai/) — needs ANTHROPIC_API_KEY to run
+anthropic                      # AI features (ai/) — Claude path (ANTHROPIC_API_KEY)
+google-genai                   # AI features (ai/) — free Gemini path (GEMINI_API_KEY)
 ```
 > `dbt-bigquery` is installed in a separate Python 3.12 venv, not via this file
 > — see [`airflow/README.md`](airflow/README.md).
@@ -384,7 +385,8 @@ Bank-Statement-Analyser/
 │       ├── intermediate/   int_transactions_categorised.sql
 │       └── marts/          fct_transactions.sql (fact) · dim_date · dim_merchant · dim_category
 │                           · agg_monthly_summary · agg_category_spend
-├── ai/                            ← AI features (Claude) — optional
+├── ai/                            ← AI features (Claude or free Gemini) — optional
+│   ├── llm.py                     ← provider selector (Claude / Gemini)
 │   ├── ask_statement.py           ← agentic text-to-SQL (tool-use + read-only wall)
 │   └── explain_anomalies.py       ← plain-English reasons for flagged transactions
 ├── airflow/                       ← Airflow DAG for the batch pipeline

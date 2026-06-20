@@ -48,36 +48,78 @@ def _looks_like_pdf(data: bytes) -> bool:
     return data[:5] == b"%PDF-"
 
 
-# Minimal web UI for the /ask text-to-SQL assistant (served at GET /).
+# Chat web UI for the /ask text-to-SQL assistant (served at GET /).
 ASK_PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask your statement</title>
 <style>
- body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:680px;
-   margin:40px auto;padding:0 16px;color:#0f172a;line-height:1.6}
- h1{font-size:1.5rem;margin:0 0 4px} p{color:#64748b;margin:0 0 20px}
- form{display:flex;gap:8px} input{flex:1;padding:11px 14px;border:1px solid #cbd5e1;
-   border-radius:10px;font-size:1rem} button{padding:11px 18px;border:0;border-radius:10px;
-   background:#4f46e5;color:#fff;font-weight:600;cursor:pointer}
- #out{margin-top:20px;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;
-   border-radius:10px;white-space:pre-wrap;min-height:28px}
+ *{box-sizing:border-box}
+ body{margin:0;height:100vh;display:flex;flex-direction:column;color:#0f172a;
+   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+   background:#eef1f7;background-image:radial-gradient(800px 400px at 90% -5%,rgba(79,70,229,.10),transparent 60%),
+   radial-gradient(700px 380px at 0% 100%,rgba(14,165,233,.10),transparent 60%)}
+ .app{width:100%;max-width:800px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 14px}
+ header{padding:20px 6px 10px}
+ header h1{margin:0;font-size:1.4rem;letter-spacing:-.01em}
+ header p{margin:4px 0 0;color:#64748b;font-size:.9rem}
+ .chat{flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;min-height:0}
+ .msg{max-width:84%;padding:11px 15px;border-radius:16px;white-space:pre-wrap;line-height:1.55;
+   font-size:.96rem;box-shadow:0 1px 2px rgba(15,23,42,.07)}
+ .msg.user{align-self:flex-end;background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff;border-bottom-right-radius:5px}
+ .msg.bot{align-self:flex-start;background:#fff;border:1px solid #e6e9f0;border-bottom-left-radius:5px}
+ .msg.err{align-self:flex-start;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
+ .dots span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:#94a3b8;animation:b 1s infinite}
+ .dots span:nth-child(2){animation-delay:.15s} .dots span:nth-child(3){animation-delay:.3s}
+ @keyframes b{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+ .chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 4px}
+ .chip{font-size:.82rem;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;
+   padding:6px 12px;cursor:pointer}
+ .chip:hover{background:#e0e7ff}
+ .composer{display:flex;gap:8px;padding:10px 4px 16px}
+ textarea{flex:1;resize:none;max-height:140px;padding:12px 15px;border:1px solid #cbd5e1;border-radius:16px;
+   font:inherit;font-size:1rem;line-height:1.4;background:#fff}
+ textarea:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+ .composer button{padding:0 22px;border:0;border-radius:16px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer}
+ .composer button:disabled{opacity:.5;cursor:default}
 </style></head><body>
-<h1>💬 Ask your statement</h1>
-<p>Ask a question about your transactions — the AI writes the query and answers.</p>
-<form id="f">
-  <input id="q" autocomplete="off"
-    placeholder="e.g. how much did I spend on food, by month?">
-  <button>Ask</button>
-</form>
-<div id="out"></div>
+<div class="app">
+  <header>
+    <h1>💬 Ask your statement</h1>
+    <p>Ask in plain English — the AI writes the SQL, runs it on your BigQuery data, and answers.</p>
+  </header>
+  <div class="chat" id="chat">
+    <div class="msg bot">Hi! Ask me anything about your transactions — spending by category, monthly trends, top merchants, anomalies…</div>
+    <div class="chips" id="chips"></div>
+  </div>
+  <form class="composer" id="f">
+    <textarea id="q" rows="1" placeholder="e.g. how much did I spend on food, by month?"></textarea>
+    <button id="send">Ask</button>
+  </form>
+</div>
 <script>
- const f=document.getElementById('f'),q=document.getElementById('q'),out=document.getElementById('out');
- f.onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;out.textContent='Thinking…';
-  try{const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({question:q.value})});const d=await r.json();
-   out.textContent=d.answer||('Error: '+(d.error||('HTTP '+r.status)));}
-  catch(err){out.textContent='Error: '+err;}};
+ const chat=document.getElementById('chat'),f=document.getElementById('f'),q=document.getElementById('q'),
+       send=document.getElementById('send'),chips=document.getElementById('chips');
+ const examples=["How much did I spend on food, by month?","What are my top 5 merchants by spend?",
+   "Show my total income vs expense per month.","List my flagged anomalies."];
+ examples.forEach(t=>{const c=document.createElement('button');c.type='button';c.className='chip';
+   c.textContent=t;c.onclick=()=>{q.value=t;ask();};chips.appendChild(c);});
+ function add(text,cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;
+   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
+ function thinking(){const d=document.createElement('div');d.className='msg bot';
+   d.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
+   chat.appendChild(d);chat.scrollTop=chat.scrollHeight;return d;}
+ async function ask(){const text=q.value.trim();if(!text)return;
+   add(text,'user');q.value='';q.style.height='auto';send.disabled=true;const t=thinking();
+   try{const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({question:text})});const d=await r.json();t.remove();
+    if(d.answer) add(d.answer.replace(/^[*-] /gm,'• '),'bot');
+    else add('⚠ '+(d.error||('HTTP '+r.status)),'err');}
+   catch(e){t.remove();add('⚠ '+e,'err');}
+   send.disabled=false;q.focus();}
+ f.onsubmit=e=>{e.preventDefault();ask();};
+ q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask();}});
+ q.addEventListener('input',()=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,140)+'px';});
 </script></body></html>"""
 
 
