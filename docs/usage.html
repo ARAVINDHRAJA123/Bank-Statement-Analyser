@@ -482,6 +482,24 @@ dbt docs serve         <span class="cm"># interactive lineage graph</span></pre>
           <div class="tsbody">Set <code>GEMINI_API_KEY</code> (free) or <code>ANTHROPIC_API_KEY</code>.</div></details>
         <details class="ts"><summary>Emoji / unicode error in the terminal (Windows)</summary>
           <div class="tsbody">Set <code>$env:PYTHONIOENCODING="utf-8"</code> before running.</div></details>
+        <details class="ts"><summary>“can't open file … \ai\ask_statement.py”</summary>
+          <div class="tsbody">You're not in the project folder. <code>cd</code> into the repo first, then run:
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">powershell</span></div>
+<pre>cd C:\GIT_Projects\Bank-Statement-Analyser
+python ai\ask_statement.py "your question"</pre></div></div></details>
+        <details class="ts"><summary>dbt venv broken — “No Python at …\Python312\python.exe”</summary>
+          <div class="tsbody">
+            <p>The Python 3.12 the venv was built on is gone (moved or uninstalled). Reinstall Python 3.12 (or 3.13)
+              from <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a>, then recreate the venv:</p>
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">powershell</span></div>
+<pre>Remove-Item -Recurse -Force $HOME\dbt-venv
+&amp; "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv $HOME\dbt-venv
+$HOME\dbt-venv\Scripts\Activate.ps1
+pip install dbt-bigquery
+dbt --version          <span class="cm"># confirm it works</span></pre></div>
+            <p>Keep dbt and the AI library in <strong>separate</strong> environments — installing
+              <code>google-generativeai</code> into the dbt venv downgrades protobuf and breaks dbt.</p>
+          </div></details>
       </div>
     </section>
 
