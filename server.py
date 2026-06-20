@@ -55,98 +55,130 @@ ASK_PAGE = """<!DOCTYPE html>
 <title>Ask your statement</title>
 <style>
  *{box-sizing:border-box}
- body{margin:0;height:100vh;display:flex;flex-direction:column;color:#0f172a;
-   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-   background:#eef1f7;background-image:radial-gradient(800px 400px at 90% -5%,rgba(79,70,229,.10),transparent 60%),
-   radial-gradient(700px 380px at 0% 100%,rgba(14,165,233,.10),transparent 60%)}
- .app{width:100%;max-width:820px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 14px}
- header{padding:18px 6px 8px}
- header h1{margin:0;font-size:1.35rem;letter-spacing:-.01em}
- header p{margin:4px 0 0;color:#64748b;font-size:.9rem}
- .chat{flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:14px;min-height:0;scroll-behavior:smooth}
- .row{display:flex;gap:10px;align-items:flex-start;animation:pop .32s cubic-bezier(.2,.7,.3,1)}
+ body{margin:0;height:100vh;display:flex;flex-direction:column;color:#e8eaf2;
+   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#07070b}
+ /* full-bleed dark backdrop: bottom blue/purple glow + halftone dots (fills the side space) */
+ .bg{position:fixed;inset:0;z-index:-1;
+   background:radial-gradient(150% 82% at 50% 124%,rgba(124,107,255,.32),rgba(56,103,214,.14) 38%,transparent 68%),#07070b}
+ .bg::after{content:"";position:absolute;inset:0;
+   background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.4px);background-size:24px 24px;
+   -webkit-mask-image:linear-gradient(to top,#000,transparent 44%);mask-image:linear-gradient(to top,#000,transparent 44%);opacity:.7}
+ .app{width:100%;max-width:760px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 16px}
+ .topbar{display:flex;align-items:center;gap:10px;padding:14px 2px;color:#aeb6c8;font-size:.92rem}
+ .topbar .b{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;
+   background:linear-gradient(135deg,#4285f4,#a142f4)}
+ .topbar .b svg{width:16px;height:16px}
+ .stage{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0;scroll-behavior:smooth}
+ /* hero (empty state) */
+ .hero{margin:auto;text-align:center;padding:10px 0 30px}
+ .spark{width:54px;height:54px;animation:tw 5s ease-in-out infinite,rise .6s .05s both}
+ @keyframes tw{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(10deg) scale(1.08)}}
+ .hero h1{font-size:clamp(26px,5vw,38px);font-weight:500;letter-spacing:-.01em;margin:18px 0 0;
+   color:#f4f6fc;animation:rise .6s .15s both}
+ .hero p{color:#9aa3b8;margin:8px 0 0;font-size:.95rem;animation:rise .6s .22s both}
+ .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:24px;animation:rise .6s .3s both}
+ .chip{font-size:.85rem;color:#cfd6ea;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+   border-radius:999px;padding:9px 15px;cursor:pointer;transition:.15s}
+ .chip:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
+ /* chat */
+ .chat{display:flex;flex-direction:column;gap:14px;padding:8px 2px 6px}
+ .row{display:flex;gap:10px;align-items:flex-start;animation:pop .34s cubic-bezier(.2,.7,.3,1)}
  .row.user{flex-direction:row-reverse}
  @keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
- .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:14px;font-weight:700;margin-top:2px}
- .avatar.bot{background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff}
- .avatar.user{background:#dbe2ee}
- .bubble{max-width:78%;padding:11px 15px;border-radius:16px;white-space:pre-wrap;line-height:1.55;
-   font-size:.96rem;box-shadow:0 1px 2px rgba(15,23,42,.07)}
- .row.user .bubble{background:linear-gradient(135deg,#4f46e5,#0ea5e9);color:#fff;border-bottom-right-radius:5px}
- .row.bot .bubble{background:#fff;border:1px solid #e6e9f0;border-bottom-left-radius:5px}
- .row.err .bubble{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}
- .caret::after{content:'▋';color:#a3aec2;margin-left:1px;animation:blink 1s steps(1) infinite}
+ @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+ @keyframes riseUp{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:none}}
+ .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:14px;margin-top:2px}
+ .avatar.bot{background:linear-gradient(135deg,#4285f4,#a142f4)}
+ .avatar.bot svg{width:17px;height:17px} .avatar.user{background:#2a2c38;color:#cbd2e0;font-weight:700}
+ .bubble{max-width:80%;padding:11px 15px;border-radius:17px;white-space:pre-wrap;line-height:1.55;font-size:.96rem}
+ .row.user .bubble{background:linear-gradient(135deg,#4285f4,#7a5cff);color:#fff;border-bottom-right-radius:5px}
+ .row.bot .bubble{background:#15161f;border:1px solid #262835;color:#e8eaf2;border-bottom-left-radius:5px}
+ .row.err .bubble{background:#27151b;border:1px solid #5b2330;color:#ffb4bd}
+ .caret::after{content:'▋';color:#7c86a6;margin-left:1px;animation:blink 1s steps(1) infinite}
  @keyframes blink{50%{opacity:0}}
- .dots span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:#94a3b8;animation:b 1s infinite}
+ .dots span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:#7c86a6;animation:bo 1s infinite}
  .dots span:nth-child(2){animation-delay:.15s} .dots span:nth-child(3){animation-delay:.3s}
- @keyframes b{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
- .chips{display:flex;flex-wrap:wrap;gap:8px;padding:2px 4px 2px 44px}
- .chip{font-size:.82rem;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;
-   padding:6px 12px;cursor:pointer;transition:.15s}
- .chip:hover{background:#e0e7ff;transform:translateY(-1px)}
- .composer{display:flex;gap:8px;padding:10px 4px 16px}
- textarea{flex:1;resize:none;max-height:150px;padding:12px 15px;border:1px solid #cbd5e1;border-radius:16px;
-   font:inherit;font-size:1rem;line-height:1.4;background:#fff}
- textarea:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
- .composer button{padding:0 22px;border:0;border-radius:16px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer;transition:.15s}
- .composer button:hover:not(:disabled){background:#4338ca}
- .composer button:active{transform:scale(.96)}
- .composer button:disabled{opacity:.5;cursor:default}
+ @keyframes bo{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+ /* composer pill (Gemini-style) */
+ .composer{padding:10px 0 18px;animation:riseUp .6s .12s both}
+ .pill{display:flex;align-items:flex-end;gap:8px;background:#14151c;border:1px solid #2a2c38;border-radius:26px;padding:7px 7px 7px 18px}
+ .pill:focus-within{border-color:#4f6bff;box-shadow:0 0 0 3px rgba(79,107,255,.18)}
+ .pill textarea{flex:1;background:transparent;border:0;color:#e8eaf2;font:inherit;font-size:1rem;line-height:1.4;
+   resize:none;max-height:150px;outline:none;padding:8px 0}
+ .pill textarea::placeholder{color:#79829b}
+ .pill button{flex:none;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;font-size:18px;color:#fff;
+   background:linear-gradient(135deg,#4285f4,#a142f4);transition:.15s}
+ .pill button:hover:not(:disabled){filter:brightness(1.08)} .pill button:active{transform:scale(.94)}
+ .pill button:disabled{opacity:.45;cursor:default}
+ @media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style></head><body>
+<div class="bg"></div>
 <div class="app">
-  <header>
-    <h1>💬 Ask your statement</h1>
-    <p>Ask in plain English — the AI writes the SQL, runs it on your BigQuery data, and answers.</p>
-  </header>
-  <div class="chat" id="chat">
-    <div class="row bot"><div class="avatar bot">✦</div>
-      <div class="bubble">Hi! Ask me anything about your transactions — spending by category, monthly trends, top merchants, anomalies…</div></div>
-    <div class="chips" id="chips"></div>
+  <div class="topbar"><span class="b">✦</span> Ask your statement</div>
+  <div class="stage" id="stage">
+    <div class="hero" id="hero">
+      <svg class="spark" viewBox="0 0 24 24" aria-hidden="true"><defs>
+        <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#4285f4"/><stop offset=".4" stop-color="#a142f4"/>
+          <stop offset=".72" stop-color="#ea4335"/><stop offset="1" stop-color="#fbbc05"/></linearGradient></defs>
+        <path fill="url(#sg)" d="M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z"/></svg>
+      <h1>What would you like to know?</h1>
+      <p>Ask in plain English — the AI writes the SQL, runs it on your BigQuery data, and answers.</p>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="chat" id="chat"></div>
   </div>
   <form class="composer" id="f">
-    <textarea id="q" rows="1" placeholder="e.g. how much did I spend on food, by month?"></textarea>
-    <button id="send">Ask</button>
+    <div class="pill">
+      <textarea id="q" rows="1" placeholder="Ask your statement…"></textarea>
+      <button id="send" type="submit" aria-label="Ask">↑</button>
+    </div>
   </form>
 </div>
 <script>
- const chat=document.getElementById('chat'),f=document.getElementById('f'),q=document.getElementById('q'),
-       send=document.getElementById('send'),chips=document.getElementById('chips');
+ const stage=document.getElementById('stage'),chat=document.getElementById('chat'),hero=document.getElementById('hero'),
+       f=document.getElementById('f'),q=document.getElementById('q'),send=document.getElementById('send'),
+       chips=document.getElementById('chips');
+ const SPARK='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z"/></svg>';
  const examples=["How much did I spend on food, by month?","What are my top 5 merchants by spend?",
    "Show my total income vs expense per month.","List my flagged anomalies."];
  examples.forEach(t=>{const c=document.createElement('button');c.type='button';c.className='chip';
    c.textContent=t;c.onclick=()=>{q.value=t;ask();};chips.appendChild(c);});
 
+ function hideHero(){ if(hero && !hero.dataset.gone){hero.dataset.gone='1';
+   hero.style.transition='opacity .35s,transform .35s';hero.style.opacity='0';hero.style.transform='translateY(-12px)';
+   setTimeout(()=>{hero.style.display='none';},360);} }
  function add(cls){
-   const r=document.createElement('div');
-   r.className='row '+(cls==='user'?'user':cls==='err'?'err':'bot');
+   const r=document.createElement('div'); r.className='row '+(cls==='user'?'user':cls==='err'?'err':'bot');
    const av=document.createElement('div'); av.className='avatar '+(cls==='user'?'user':'bot');
-   av.textContent=cls==='user'?'🧑':'✦';
+   if(cls==='user') av.textContent='🧑'; else av.innerHTML=SPARK;
    const b=document.createElement('div'); b.className='bubble';
-   r.appendChild(av); r.appendChild(b); chat.appendChild(r); chat.scrollTop=chat.scrollHeight;
+   r.appendChild(av); r.appendChild(b); chat.appendChild(r); stage.scrollTop=stage.scrollHeight;
    return {row:r, bubble:b};
  }
- function thinking(){
-   const {row,bubble}=add('bot');
-   bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
-   return row;
- }
+ function thinking(){ const {row,bubble}=add('bot');
+   bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>'; return row; }
  function typewrite(el,text){               // ChatGPT/Claude-style streamed reveal
    el.textContent=''; el.classList.add('caret');
    let i=0; const step=Math.max(2,Math.ceil(text.length/45));
-   (function tick(){ i+=step; el.textContent=text.slice(0,i); chat.scrollTop=chat.scrollHeight;
+   (function tick(){ i+=step; el.textContent=text.slice(0,i); stage.scrollTop=stage.scrollHeight;
      if(i<text.length) requestAnimationFrame(tick); else el.classList.remove('caret'); })();
  }
  function friendly(err){
    const s=String(err);
    if(/RESOURCE_EXHAUSTED|429|quota/i.test(s))
-     return "⏳ Free-tier limit reached for now. Gemini's free tier allows only a small number of requests "
-          + "per day on gemini-2.5-flash — wait a bit and retry, set GEMINI_MODEL to another model, or use a Claude key.";
+     return "⏳ Free-tier limit reached for now. Gemini's free tier allows only a small number of requests per day "
+          + "— wait a bit and retry, set GEMINI_MODEL to a lighter model like gemini-2.5-flash-lite, or use a Claude key.";
+   if(/503|UNAVAILABLE|high demand|overloaded/i.test(s))
+     return "🛰️ The model is briefly busy (high demand) — this is temporary. Try again in a few seconds, or switch "
+          + "GEMINI_MODEL to gemini-2.5-flash-lite.";
    if(/No LLM key|API_KEY/i.test(s))
      return "🔑 No AI key set. Set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY, then restart the server.";
    return "⚠ "+(s.length>240?s.slice(0,240)+'…':s);
  }
  async function ask(){
    const text=q.value.trim(); if(!text) return;
+   hideHero();
    add('user').bubble.textContent=text;
    q.value=''; q.style.height='auto'; send.disabled=true;
    const t=thinking();
