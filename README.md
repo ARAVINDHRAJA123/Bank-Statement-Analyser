@@ -177,7 +177,7 @@ GitHub Pages:
 [aravindhraja123.github.io/Bank-Statement-Analyser](https://aravindhraja123.github.io/Bank-Statement-Analyser/)
 — or browse locally with `cd dbt_bank && dbt docs generate && dbt docs serve`.
 
-📈 **BI dashboard:** a Looker Studio (Data Studio) dashboard is built on the
+📈 **BI dashboard:** a Data Studio dashboard is built on the
 marts — KPI scorecards (income, expense, net, anomalies), monthly income vs
 expense, spend by category, and top merchants. It isn't linked here because it
 renders real transactions; rebuild it on a sample statement to share publicly.
