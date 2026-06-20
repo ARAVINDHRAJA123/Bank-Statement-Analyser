@@ -53,10 +53,14 @@ ASK_PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ask your statement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
  *{box-sizing:border-box}
- body{margin:0;height:100vh;display:flex;flex-direction:column;color:#e8eaf2;
-   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#07070b}
+ :root{--f-display:'Bricolage Grotesque',system-ui,sans-serif;--f-body:'Inter',system-ui,sans-serif}
+ body{margin:0;height:100vh;display:flex;flex-direction:column;color:#e8eaf2;font-size:16px;
+   font-family:var(--f-body),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#07070b}
  /* full-bleed dark backdrop: bottom blue/purple glow + halftone dots (fills the side space) */
  .bg{position:fixed;inset:0;z-index:-1;
    background:radial-gradient(150% 82% at 50% 124%,rgba(124,107,255,.32),rgba(56,103,214,.14) 38%,transparent 68%),#07070b}
@@ -64,7 +68,7 @@ ASK_PAGE = """<!DOCTYPE html>
    background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.4px);background-size:24px 24px;
    -webkit-mask-image:linear-gradient(to top,#000,transparent 44%);mask-image:linear-gradient(to top,#000,transparent 44%);opacity:.7}
  .app{width:100%;max-width:760px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;padding:0 16px}
- .topbar{display:flex;align-items:center;gap:10px;padding:14px 2px;color:#aeb6c8;font-size:.92rem}
+ .topbar{display:flex;align-items:center;gap:10px;padding:14px 2px;color:#c3cbe0;font-size:1rem;font-family:var(--f-display);font-weight:600}
  .topbar .b{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;
    background:linear-gradient(135deg,#4285f4,#a142f4)}
  .topbar .b svg{width:16px;height:16px}
@@ -73,11 +77,11 @@ ASK_PAGE = """<!DOCTYPE html>
  .hero{margin:auto;text-align:center;padding:10px 0 30px}
  .spark{width:54px;height:54px;animation:tw 5s ease-in-out infinite,rise .6s .05s both}
  @keyframes tw{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(10deg) scale(1.08)}}
- .hero h1{font-size:clamp(26px,5vw,38px);font-weight:500;letter-spacing:-.01em;margin:18px 0 0;
-   color:#f4f6fc;animation:rise .6s .15s both}
- .hero p{color:#9aa3b8;margin:8px 0 0;font-size:.95rem;animation:rise .6s .22s both}
+ .hero h1{font-family:var(--f-display);font-size:clamp(30px,5.2vw,44px);font-weight:600;letter-spacing:-.02em;
+   margin:18px 0 0;color:#f4f6fc;animation:rise .6s .15s both}
+ .hero p{color:#9aa3b8;margin:10px 0 0;font-size:1.02rem;line-height:1.5;max-width:46ch;margin-left:auto;margin-right:auto;animation:rise .6s .22s both}
  .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:24px;animation:rise .6s .3s both}
- .chip{font-size:.85rem;color:#cfd6ea;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+ .chip{font-size:.92rem;color:#cfd6ea;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
    border-radius:999px;padding:9px 15px;cursor:pointer;transition:.15s}
  .chip:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
  /* chat */
@@ -90,7 +94,7 @@ ASK_PAGE = """<!DOCTYPE html>
  .avatar{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:14px;margin-top:2px}
  .avatar.bot{background:linear-gradient(135deg,#4285f4,#a142f4)}
  .avatar.bot svg{width:17px;height:17px} .avatar.user{background:#2a2c38;color:#cbd2e0;font-weight:700}
- .bubble{max-width:80%;padding:11px 15px;border-radius:17px;white-space:pre-wrap;line-height:1.55;font-size:.96rem}
+ .bubble{max-width:80%;padding:12px 16px;border-radius:17px;white-space:pre-wrap;line-height:1.6;font-size:1.02rem}
  .row.user .bubble{background:linear-gradient(135deg,#4285f4,#7a5cff);color:#fff;border-bottom-right-radius:5px}
  .row.bot .bubble{background:#15161f;border:1px solid #262835;color:#e8eaf2;border-bottom-left-radius:5px}
  .row.err .bubble{background:#27151b;border:1px solid #5b2330;color:#ffb4bd}
@@ -103,7 +107,7 @@ ASK_PAGE = """<!DOCTYPE html>
  .composer{padding:10px 0 18px;animation:riseUp .6s .12s both}
  .pill{display:flex;align-items:flex-end;gap:8px;background:#14151c;border:1px solid #2a2c38;border-radius:26px;padding:7px 7px 7px 18px}
  .pill:focus-within{border-color:#4f6bff;box-shadow:0 0 0 3px rgba(79,107,255,.18)}
- .pill textarea{flex:1;background:transparent;border:0;color:#e8eaf2;font:inherit;font-size:1rem;line-height:1.4;
+ .pill textarea{flex:1;background:transparent;border:0;color:#e8eaf2;font-family:var(--f-body);font-size:1.04rem;line-height:1.45;
    resize:none;max-height:150px;outline:none;padding:8px 0}
  .pill textarea::placeholder{color:#79829b}
  .pill button{flex:none;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;font-size:18px;color:#fff;
