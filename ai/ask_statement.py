@@ -154,7 +154,7 @@ def _ask_anthropic(question: str, verbose: bool) -> str:
     return "Stopped after too many steps without a final answer."
 
 
-# ── Gemini path: automatic function calling (free tier, google-genai SDK) ────
+# ── Gemini path: explicit function-calling loop (free tier, google-genai SDK) ─
 def _ask_gemini(question: str, verbose: bool) -> str:
     from google import genai
     from google.genai import types
@@ -162,18 +162,43 @@ def _ask_gemini(question: str, verbose: bool) -> str:
     client = genai.Client(api_key=gemini_api_key())
     bq = bigquery.Client(project=PROJECT, location=LOCATION)
 
-    def run_sql(query: str) -> str:
-        """Run a read-only BigQuery SELECT/WITH query against the analytics dataset and return rows as JSON."""
-        if verbose:
-            print(f"\n[run_sql]\n{query}\n", file=sys.stderr)
-        return json.dumps(run_query(query, bq), default=str)
-
-    # passing a Python function as a tool enables automatic function calling
-    chat = client.chats.create(
-        model=GEMINI_MODEL,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM, tools=[run_sql]),
+    run_sql_decl = types.FunctionDeclaration(
+        name="run_sql",
+        description=(
+            "Run a read-only BigQuery Standard SQL query (SELECT/WITH only) against the "
+            f"{PROJECT}.{DATASET} dataset and return up to {MAX_ROWS} rows as JSON."
+        ),
+        parameters=types.Schema(
+            type="OBJECT",
+            properties={"query": types.Schema(type="STRING", description="A SELECT query.")},
+            required=["query"],
+        ),
     )
-    return chat.send_message(question).text.strip()
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM,
+        tools=[types.Tool(function_declarations=[run_sql_decl])],
+        # we drive the loop ourselves (so we can print the SQL and surface errors)
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+    contents = [types.Content(role="user", parts=[types.Part(text=question)])]
+
+    for _ in range(8):
+        resp = client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=config)
+        calls = resp.function_calls
+        if not calls:
+            return (resp.text or "").strip()
+        contents.append(resp.candidates[0].content)
+        for call in calls:
+            query = (call.args or {}).get("query", "")
+            if verbose:
+                print(f"\n[run_sql]\n{query}\n", file=sys.stderr)
+            out = run_query(query, bq)
+            if verbose and "error" in out:
+                print(f"[run_sql error] {out['error']}", file=sys.stderr)
+            contents.append(types.Content(role="user", parts=[
+                types.Part.from_function_response(name=call.name, response={"result": json.dumps(out, default=str)})
+            ]))
+    return "Stopped after too many steps without a final answer."
 
 
 def ask(question: str, verbose: bool = False) -> str:
