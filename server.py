@@ -114,11 +114,52 @@ ASK_PAGE = """<!DOCTYPE html>
    background:linear-gradient(135deg,#4285f4,#a142f4);transition:.15s}
  .pill button:hover:not(:disabled){filter:brightness(1.08)} .pill button:active{transform:scale(.94)}
  .pill button:disabled{opacity:.45;cursor:default}
+ /* topbar controls */
+ .topbar .spacer{flex:1}
+ .topbar select,.topbar .iconbtn{background:rgba(255,255,255,.07);color:inherit;border:1px solid rgba(255,255,255,.14);
+   border-radius:10px;padding:6px 10px;font-family:var(--f-body);font-size:.82rem;cursor:pointer;transition:.15s}
+ .topbar .iconbtn{font-size:1rem;line-height:1} .topbar .iconbtn:active{transform:scale(.9)}
+ /* collapsible SQL under an answer */
+ .sqltoggle{display:inline-block;margin-top:10px;font-size:.8rem;color:#9aa3b8;background:none;border:0;cursor:pointer;
+   padding:0;font-family:var(--f-body)}
+ .sqltoggle:hover{color:#cfd6ea}
+ .sqlbox{margin-top:8px;overflow:hidden;max-height:0;opacity:0;transition:max-height .38s cubic-bezier(.2,.7,.3,1),opacity .3s;
+   background:#0c0d14;border:1px solid #23252f;border-radius:12px}
+ .sqlbox.open{max-height:560px;opacity:1}
+ .sqlbox pre{margin:0;padding:12px 14px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:.8rem;
+   line-height:1.5;color:#cdd6e6;white-space:pre-wrap}
+ /* light theme (Gemini look stays dark by default; toggle to light) */
+ html[data-theme="light"] body{color:#0f172a;background:#f4f6fb}
+ html[data-theme="light"] .bg{background:radial-gradient(150% 82% at 50% 124%,rgba(124,107,255,.12),rgba(56,103,214,.06) 38%,transparent 68%),#f4f6fb}
+ html[data-theme="light"] .bg::after{opacity:.35}
+ html[data-theme="light"] .topbar{color:#334155}
+ html[data-theme="light"] .topbar select,html[data-theme="light"] .topbar .iconbtn{background:#fff;border-color:#cbd5e1}
+ html[data-theme="light"] .hero h1{color:#0f172a}
+ html[data-theme="light"] .hero p{color:#64748b}
+ html[data-theme="light"] .chip{color:#4f46e5;background:#eef2ff;border-color:#c7d2fe}
+ html[data-theme="light"] .chip:hover{background:#e0e7ff}
+ html[data-theme="light"] .row.bot .bubble{background:#fff;border-color:#e6e9f0;color:#0f172a}
+ html[data-theme="light"] .row.err .bubble{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
+ html[data-theme="light"] .pill{background:#fff;border-color:#cbd5e1}
+ html[data-theme="light"] .pill textarea{color:#0f172a} html[data-theme="light"] .pill textarea::placeholder{color:#94a3b8}
+ html[data-theme="light"] .sqlbox{background:#f8fafc;border-color:#e2e8f0} html[data-theme="light"] .sqlbox pre{color:#334155}
+ html[data-theme="light"] .sqltoggle{color:#64748b} html[data-theme="light"] .sqltoggle:hover{color:#0f172a}
+ /* Material-style theme wipe */
+ ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+ ::view-transition-new(root){z-index:2147483646} ::view-transition-old(root){z-index:1}
  @media(prefers-reduced-motion:reduce){*{animation:none!important}}
 </style></head><body>
 <div class="bg"></div>
 <div class="app">
-  <div class="topbar"><span class="b">✦</span> Ask your statement</div>
+  <div class="topbar"><span class="b">✦</span> Ask your statement
+    <span class="spacer"></span>
+    <select id="model" title="Gemini model">
+      <option value="gemini-2.5-flash">2.5 Flash</option>
+      <option value="gemini-2.5-flash-lite">2.5 Flash-Lite</option>
+      <option value="gemini-2.0-flash-lite">2.0 Flash-Lite</option>
+    </select>
+    <button id="theme" class="iconbtn" type="button" title="Toggle light / dark">☀️</button>
+  </div>
   <div class="stage" id="stage">
     <div class="hero" id="hero">
       <svg class="spark" viewBox="0 0 24 24" aria-hidden="true"><defs>
@@ -148,6 +189,37 @@ ASK_PAGE = """<!DOCTYPE html>
    "Show my total income vs expense per month.","List my flagged anomalies."];
  examples.forEach(t=>{const c=document.createElement('button');c.type='button';c.className='chip';
    c.textContent=t;c.onclick=()=>{q.value=t;ask();};chips.appendChild(c);});
+
+ // model picker (persisted)
+ const modelSel=document.getElementById('model');
+ modelSel.value=localStorage.getItem('model')||'gemini-2.5-flash';
+ modelSel.onchange=()=>localStorage.setItem('model',modelSel.value);
+
+ // light/dark toggle with a Material-style circular wipe
+ const root=document.documentElement, themeBtn=document.getElementById('theme');
+ root.dataset.theme=localStorage.getItem('theme')||'dark';
+ const syncTheme=()=>themeBtn.textContent=root.dataset.theme==='light'?'🌙':'☀️';
+ syncTheme();
+ themeBtn.onclick=()=>{
+   const tn=root.dataset.theme==='light'?'dark':'light';
+   const go=()=>{root.dataset.theme=tn;localStorage.setItem('theme',tn);syncTheme();};
+   if(!document.startViewTransition){go();return;}
+   const r=themeBtn.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,
+         end=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+   document.startViewTransition(go).ready.then(()=>document.documentElement.animate(
+     {clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${end}px at ${x}px ${y}px)`]},
+     {duration:520,easing:'cubic-bezier(.22,.61,.36,1)',pseudoElement:'::view-transition-new(root)'}));
+ };
+
+ // collapsible SQL under an answer
+ function attachSQL(bubble,sqls){
+   const btn=document.createElement('button'); btn.className='sqltoggle'; btn.textContent='⚙ Show SQL ('+sqls.length+')';
+   const box=document.createElement('div'); box.className='sqlbox';
+   const pre=document.createElement('pre'); pre.textContent=sqls.join(';\\n\\n'); box.appendChild(pre);
+   btn.onclick=()=>{const open=box.classList.toggle('open');
+     btn.textContent=(open?'⚙ Hide SQL (':'⚙ Show SQL (')+sqls.length+')'; stage.scrollTop=stage.scrollHeight;};
+   bubble.appendChild(btn); bubble.appendChild(box);
+ }
 
  function hideHero(){ if(hero && !hero.dataset.gone){hero.dataset.gone='1';
    hero.style.transition='opacity .35s,transform .35s';hero.style.opacity='0';hero.style.transform='translateY(-12px)';
@@ -188,9 +260,10 @@ ASK_PAGE = """<!DOCTYPE html>
    const t=thinking();
    try{
      const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({question:text})});
+       body:JSON.stringify({question:text, model:modelSel.value})});
      const d=await r.json(); t.remove();
-     if(d.answer) typewrite(add('bot').bubble, d.answer.replace(/^[*-] /gm,'• '));
+     if(d.answer){ const b=add('bot').bubble; typewrite(b, d.answer.replace(/^[*-] /gm,'• '));
+       if(d.sql && d.sql.length) attachSQL(b, d.sql); }
      else add('err').bubble.textContent=friendly(d.error||('HTTP '+r.status));
    }catch(e){ t.remove(); add('err').bubble.textContent=friendly(e); }
    send.disabled=false; q.focus();
@@ -269,13 +342,15 @@ def ask_endpoint():
     question = (data.get("question") or "").strip()
     if not question:
         return jsonify(error="missing 'question' in JSON body"), 400
+    model = (data.get("model") or "").strip() or None
     try:
         from ai.ask_statement import ask
     except Exception:
-        return jsonify(error="AI feature unavailable: pip install anthropic and "
-                             "set ANTHROPIC_API_KEY"), 503
+        return jsonify(error="AI feature unavailable: install the SDK and set "
+                             "GEMINI_API_KEY (free) or ANTHROPIC_API_KEY"), 503
     try:
-        return jsonify(question=question, answer=ask(question)), 200
+        result = ask(question, model=model, return_sql=True)
+        return jsonify(question=question, answer=result["answer"], sql=result["sql"]), 200
     except Exception as e:
         log.exception("ask endpoint failed")
         return jsonify(error=f"{type(e).__name__}: {e}"), 500

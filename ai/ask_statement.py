@@ -109,7 +109,7 @@ def run_query(query: str, client: bigquery.Client) -> dict:
 
 
 # ── Claude path: manual tool-use loop ───────────────────────────────────────
-def _ask_anthropic(question: str, verbose: bool) -> str:
+def _ask_anthropic(question, verbose, sqls, model):
     import anthropic
 
     client = anthropic.Anthropic()
@@ -130,7 +130,7 @@ def _ask_anthropic(question: str, verbose: bool) -> str:
 
     for _ in range(8):
         resp = client.messages.create(
-            model=ANTHROPIC_MODEL, max_tokens=16000, system=SYSTEM,
+            model=model or ANTHROPIC_MODEL, max_tokens=16000, system=SYSTEM,
             tools=tools, thinking={"type": "adaptive"}, messages=messages,
         )
         if resp.stop_reason == "refusal":
@@ -141,6 +141,7 @@ def _ask_anthropic(question: str, verbose: bool) -> str:
             for block in resp.content:
                 if block.type == "tool_use" and block.name == "run_sql":
                     sql = block.input["query"]
+                    sqls.append(sql)
                     if verbose:
                         print(f"\n[run_sql]\n{sql}\n", file=sys.stderr)
                     out = run_query(sql, bq)
@@ -155,7 +156,7 @@ def _ask_anthropic(question: str, verbose: bool) -> str:
 
 
 # ── Gemini path: explicit function-calling loop (free tier, google-genai SDK) ─
-def _ask_gemini(question: str, verbose: bool) -> str:
+def _ask_gemini(question, verbose, sqls, model):
     from google import genai
     from google.genai import types
 
@@ -183,13 +184,14 @@ def _ask_gemini(question: str, verbose: bool) -> str:
     contents = [types.Content(role="user", parts=[types.Part(text=question)])]
 
     for _ in range(8):
-        resp = client.models.generate_content(model=GEMINI_MODEL, contents=contents, config=config)
+        resp = client.models.generate_content(model=model or GEMINI_MODEL, contents=contents, config=config)
         calls = resp.function_calls
         if not calls:
             return (resp.text or "").strip()
         contents.append(resp.candidates[0].content)
         for call in calls:
             query = (call.args or {}).get("query", "")
+            sqls.append(query)
             if verbose:
                 print(f"\n[run_sql]\n{query}\n", file=sys.stderr)
             out = run_query(query, bq)
@@ -201,14 +203,18 @@ def _ask_gemini(question: str, verbose: bool) -> str:
     return "Stopped after too many steps without a final answer."
 
 
-def ask(question: str, verbose: bool = False) -> str:
-    """Run the agentic loop on whichever provider has a key set."""
+def ask(question: str, verbose: bool = False, model: str | None = None, return_sql: bool = False):
+    """Run the agentic loop on whichever provider has a key set.
+    Returns the answer string, or {"answer", "sql"} when return_sql=True."""
     provider = get_provider()
+    sqls: list[str] = []
     if provider == "anthropic":
-        return _ask_anthropic(question, verbose)
-    if provider == "gemini":
-        return _ask_gemini(question, verbose)
-    raise RuntimeError(NO_KEY_MESSAGE)
+        answer = _ask_anthropic(question, verbose, sqls, model)
+    elif provider == "gemini":
+        answer = _ask_gemini(question, verbose, sqls, model)
+    else:
+        raise RuntimeError(NO_KEY_MESSAGE)
+    return {"answer": answer, "sql": sqls} if return_sql else answer
 
 
 def main() -> None:
