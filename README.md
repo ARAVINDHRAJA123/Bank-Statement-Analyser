@@ -19,6 +19,10 @@ a queryable history of your transactions.
 📘 **New here?** Start with the **[step-by-step Usage Guide](https://aravindhraja123.github.io/Bank-Statement-Analyser/usage.html)**
 — a modern, click-through walkthrough of everything below (or open `docs/usage.html` locally in any browser).
 
+<sub>📱 On a phone? Scan to open the live guide:</sub><br>
+<img width="120" alt="QR code to the usage guide" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Faravindhraja123.github.io%2FBank-Statement-Analyser%2Fusage.html">
+
+
 ---
 
 ## 🏗️ Architecture (two paths, one parser)
