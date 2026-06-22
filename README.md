@@ -22,6 +22,8 @@ a queryable history of your transactions.
 <sub>📱 On a phone? Scan to open the live guide:</sub><br>
 <img width="120" alt="QR code to the usage guide" src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Faravindhraja123.github.io%2FBank-Statement-Analyser%2Fusage.html">
 
+🧾 **All terminal commands** (copy-paste, step by step): [`docs/COMMANDS.md`](docs/COMMANDS.md)
+
 
 ---
 
