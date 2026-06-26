@@ -11,6 +11,7 @@ google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
 pytest>=8.0.0                  # test suite
 anthropic                      # AI features (ai/) — Claude path (ANTHROPIC_API_KEY)
 google-genai                   # AI features (ai/) — free Gemini path (GEMINI_API_KEY)
+mcp                            # MCP server (mcp_server.py) — FastMCP stdio transport
 
 # Note: dbt (dbt-bigquery) is installed in a separate Python 3.12 virtualenv,
 # not via this file — see airflow/README.md.

@@ -27,3 +27,6 @@ docs/PROJECT_GUIDE.md
 CLAUDE.md
 PERSONAL_PROJECTS_REQUIREMENT_AND_STEPS.txt
 PROJECT_OVERVIEW.html
+dbt_bank/passwordkey
+dbt_bank/passwordkey.pub
+reports/mcp/
