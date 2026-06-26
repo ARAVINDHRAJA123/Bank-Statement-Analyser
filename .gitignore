@@ -5,6 +5,8 @@ service_account.json
 *.pdf
 *.xlsx
 *.png
+# Exception: project screenshots (no financial data)
+!docs/airflow_dag.png
 Bank_Statement_Report*.xlsx
 
 # Python cache

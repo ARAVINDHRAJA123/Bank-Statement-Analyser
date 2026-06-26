@@ -14,6 +14,9 @@ consistent across the Excel report and BigQuery.
 
 ## DAG: `bank_statement_pipeline`
 
+<img alt="bank_statement_pipeline DAG graph" src="../docs/airflow_dag.png" width="900">
+
+
 ```
 ingest_pdf  ->  load_to_bigquery  ->  dbt_build  ->  notify
 ```

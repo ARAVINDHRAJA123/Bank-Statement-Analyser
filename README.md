@@ -166,6 +166,10 @@ flowchart LR
     DCAT --> AGC
 ```
 
+**DAG graph** (visualised via Astro CLI):
+
+<img alt="bank_statement_pipeline DAG" src="docs/airflow_dag.png" width="800">
+
 **Usage:**
 ```powershell
 # 1. land a statement in BigQuery
