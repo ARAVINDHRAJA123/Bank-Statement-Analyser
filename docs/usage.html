@@ -206,6 +206,7 @@
       <a href="#airflow"><span class="n">D</span> Airflow</a>
       <a href="#dashboard"><span class="n">E</span> Dashboard</a>
       <a href="#ai"><span class="n">F</span> AI assistant</a>
+      <a href="#mcp"><span class="n">G</span> MCP (AI tool access)</a>
       <div class="railhead">Reference</div>
       <a href="#tests"><span class="n">·</span> Tests &amp; CI</a>
       <a href="#docs"><span class="n">·</span> dbt docs</a>
@@ -223,7 +224,7 @@
       <div class="badges">
         <span class="badge">Python</span><span class="badge">BigQuery</span><span class="badge">dbt</span>
         <span class="badge">Airflow</span><span class="badge">n8n</span><span class="badge">Data Studio</span>
-        <span class="badge">Claude / Gemini</span>
+        <span class="badge">Claude / Gemini</span><span class="badge">MCP</span>
       </div>
     </div></div>
 
@@ -441,6 +442,85 @@ python ai/explain_anomalies.py --write    <span class="cm"># also save to a BigQ
         <div class="callout ok"><span class="lab">Safety wall</span>
           <p>The assistant can only run read-only <code>SELECT</code> queries on the <code>analytics</code> dataset, under a
             scan-size cap — it can read and reason over your data but can never change or delete anything.</p></div>
+      </div>
+    </section>
+
+    <section id="mcp" class="reveal">
+      <div class="sec-head"><div class="sec-idx">G</div>
+        <div><div class="kicker">Use it</div><h2>MCP — let any AI use your tools</h2></div></div>
+      <div class="sec-body">
+        <p><strong>MCP (Model Context Protocol)</strong> is an open standard that lets AI assistants call
+          your code directly as tools — like giving Claude or ChatGPT a set of dedicated buttons
+          for your project, instead of having them guess from the terminal.</p>
+        <p>This project ships a ready-to-run MCP server (<code>mcp_server.py</code>) with three tools:</p>
+        <table>
+          <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>project_status</code></td><td>Check env health — which API keys are set, BQ config, output paths</td></tr>
+            <tr><td><code>analyse_pdf</code></td><td>Parse a bank-statement PDF → generate the Excel report</td></tr>
+            <tr><td><code>ask_warehouse</code></td><td>Ask a plain-English question → runs read-only SQL on your BigQuery marts</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="lab">Safety first</span>
+          <p><code>analyse_pdf</code> only accepts PDFs inside a configured allowlist folder. BigQuery writes
+            are disabled by default — the AI can read and reason over your data but cannot change anything
+            unless you explicitly opt in.</p></div>
+
+        <h3>Option A — Claude Code (direct)</h3>
+        <p>If you use Claude Code, the server is registered globally and starts automatically.
+          You can ask Claude Code things like <em>"what is my total spend by category?"</em>
+          and it will query your BigQuery warehouse and reply.</p>
+        <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre><span class="cm"># Register once (user scope — works in every project)</span>
+claude mcp add -s user \
+  -e GEMINI_API_KEY=your-key \
+  -e GCP_PROJECT=your-project \
+  -e BQ_LOCATION=asia-south1 \
+  bank-statement \
+  -- \
+  /path/to/bsa-venv/bin/python /path/to/Bank-Statement-Analyser/mcp_server.py
+
+<span class="cm"># Verify</span>
+claude mcp list</pre></div>
+
+        <h3>Option B — OpenClaw (any AI client)</h3>
+        <p>OpenClaw is a local gateway that bridges MCP servers to any AI client —
+          Claude, ChatGPT, Gemini, Telegram bots, or web dashboards. Use this if you
+          want to connect clients other than Claude Code.</p>
+        <ol class="steps">
+          <li><div>Install OpenClaw and start the gateway:
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre>npm install -g openclaw
+openclaw gateway install
+openclaw gateway start</pre></div></div></li>
+          <li><div>Register the bank-statement server:
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre>openclaw mcp set bank-statement '{
+  "command": "/path/to/bsa-venv/bin/python",
+  "args": ["/path/to/Bank-Statement-Analyser/mcp_server.py"],
+  "cwd": "/path/to/Bank-Statement-Analyser",
+  "env": {
+    "GEMINI_API_KEY": "your-key",
+    "GCP_PROJECT": "your-project",
+    "BQ_LOCATION": "asia-south1"
+  }
+}'</pre></div></div></li>
+          <li><div>Verify all 3 tools are visible:
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre>openclaw mcp probe    <span class="cm"># should show: bank-statement: 3 tools</span></pre></div></div></li>
+          <li><div>Connect your AI client to the OpenClaw gateway at <code>ws://127.0.0.1:18789</code>
+            and start asking questions.</div></li>
+        </ol>
+
+        <h3>Optional: enable BigQuery writes</h3>
+        <p>The <code>load_pdf_to_bigquery</code> tool is hidden by default. Enable it only when you want
+          to append parsed rows to the warehouse:</p>
+        <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre>export BANK_MCP_ENABLE_BQ_LOAD=true
+python mcp_server.py</pre></div>
+        <div class="callout warn"><span class="lab">Cost warning</span>
+          <p>BigQuery append loads consume quota and may incur cost. Only enable this when intentionally
+            loading new statements into the warehouse.</p></div>
       </div>
     </section>
 
