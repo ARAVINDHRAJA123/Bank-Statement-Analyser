@@ -102,7 +102,27 @@ python ai\explain_anomalies.py --write            # also save to BigQuery
 $env:GEMINI_MODEL="gemini-2.5-flash-lite"
 ```
 
-## 8 · Git
+## 8 · Airflow (Astro CLI — local DAG UI)
+```bash
+# start (Docker must be running)
+cd airflow/astro
+astro dev start
+# → open http://astro.localhost:6563  (admin / admin)
+
+# stop
+astro dev stop
+
+# trigger the DAG manually (pass a PDF path)
+astro dev run dags trigger bank_statement_pipeline --conf '{"pdf_path":"/abs/path/to/statement.pdf"}'
+
+# view task logs
+astro dev logs
+
+# restart after editing the DAG
+astro dev restart
+```
+
+## 9 · Git
 ```powershell
 git status
 git pull                       # get latest before working
@@ -111,7 +131,7 @@ git commit -m "your message"
 git push
 ```
 
-## 9 · Recreate the dbt venv (if it ever breaks)
+## 10 · Recreate the dbt venv (if it ever breaks)
 ```powershell
 winget install -e --id Python.Python.3.12         # if Python 3.12 is missing
 Remove-Item -Recurse -Force $HOME\dbt-venv
@@ -136,6 +156,7 @@ $HOME\dbt-venv\Scripts\python.exe --version        # confirm the dbt venv (3.12)
 | Excel report, tests, loader, AI scripts, server | `python` (3.10+) | repo root |
 | Anything `dbt …` | activated `~/dbt-venv` (3.12) | `dbt_bank/` |
 | `n8n` | Node.js | anywhere |
+| `astro dev …` (local Airflow UI) | Docker + Astro CLI | `airflow/astro/` |
 
 > Tip: keep dbt and the AI library (`google-genai` / `anthropic`) in **separate
 > environments** — installing the AI SDK into the dbt venv causes a dependency clash.

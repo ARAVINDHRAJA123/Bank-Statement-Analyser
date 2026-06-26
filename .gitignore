@@ -30,3 +30,11 @@ PROJECT_OVERVIEW.html
 dbt_bank/passwordkey
 dbt_bank/passwordkey.pub
 reports/mcp/
+
+# Astro / local Airflow runtime — generated files, keep project skeleton
+airflow/astro/.astro/
+airflow/astro/.env
+airflow/astro/airflow.cfg
+airflow/astro/airflow.db
+airflow/astro/webserver_config.py
+airflow/astro/airflow-webserver.pid

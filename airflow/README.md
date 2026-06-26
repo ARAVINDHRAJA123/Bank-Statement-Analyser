@@ -66,6 +66,29 @@ Data Editor + Job User, and Storage Object Viewer on the statements bucket).
 
 ## Running it
 
+**Local — Astro CLI (recommended for macOS / development)**
+
+The cleanest local Airflow setup. Uses Docker under the hood, so Docker Desktop
+must be running. The project skeleton is already checked in at `airflow/astro/`.
+
+```bash
+# one-time: install Astro CLI
+brew install astro
+
+# start (from the astro folder)
+cd airflow/astro
+astro dev start
+# → UI at http://astro.localhost:6563  (admin / admin)
+
+# stop when done
+astro dev stop
+```
+
+Trigger a run manually from the UI (▶ Trigger button) or via CLI:
+```bash
+astro dev run dags trigger bank_statement_pipeline --conf '{"pdf_path":"/path/to/statement.pdf"}'
+```
+
 **Cloud Composer**
 1. Upload `dags/bank_statement_pipeline.py` to the environment's `dags/` GCS folder.
 2. Make the repo + a dbt-bigquery install available to workers (e.g. sync the
@@ -74,14 +97,15 @@ Data Editor + Job User, and Storage Object Viewer on the statements bucket).
 3. Set the Variables above. The `@daily` schedule then discovers and processes
    new PDFs from the GCS prefix.
 
-**Local Airflow (quick test)**
+**Local Airflow (alternative — standalone venv)**
+Only if you can't use Docker. Airflow standalone installs into a plain Python venv.
 ```bash
+python3 -m venv ~/airflow-venv && source ~/airflow-venv/bin/activate
+pip install "apache-airflow"
+export AIRFLOW_HOME=~/airflow-home && mkdir -p ~/airflow-home/dags
+cp airflow/dags/bank_statement_pipeline.py ~/airflow-home/dags/
 export GCP_PROJECT=n8n-upi-tracker BQ_LOCATION=asia-south1
-export REPO_DIR=/path/to/Bank-Statement-Analyser
-export PYTHON_EXECUTABLE=python DBT_EXECUTABLE=dbt
-export AIRFLOW__CORE__DAGS_FOLDER="$REPO_DIR/airflow/dags"
-airflow standalone
-# then trigger with: {"pdf_path": "/path/to/statement.pdf"}
+airflow standalone   # UI at http://localhost:8080
 ```
 
 ### Running on Windows
