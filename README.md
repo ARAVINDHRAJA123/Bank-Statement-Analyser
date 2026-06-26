@@ -2,8 +2,9 @@
 
 [![CI](https://github.com/ARAVINDHRAJA123/Bank-Statement-Analyser/actions/workflows/ci.yml/badge.svg)](https://github.com/ARAVINDHRAJA123/Bank-Statement-Analyser/actions/workflows/ci.yml)
 
-A data pipeline that turns HDFC bank-statement PDFs into two things, from one
-Python parser:
+A data pipeline that turns bank-statement PDFs into two things, from one Python
+parser. Supports **HDFC, CUB (City Union Bank), IOB, PNB, and SBI** — bank is
+auto-detected from the PDF header:
 
 1. **An instant Excel report** — delivered automatically by an n8n workflow that
    watches Google Drive, runs the analyser through a Flask service, and sends the
@@ -240,13 +241,47 @@ python ai/explain_anomalies.py --write    # also save to analytics.anomaly_expla
 
 ---
 
+## 🔌 MCP Server (AI tool access)
+
+An [MCP](https://modelcontextprotocol.io) server lets AI clients call your project as native tools — no copy-pasting, no manual terminal commands.
+
+Three tools are exposed by default:
+
+| Tool | What it does |
+|---|---|
+| `project_status` | Returns env health — API keys set, BQ config, output paths |
+| `analyse_pdf` | Parses a PDF → generates the Excel report |
+| `ask_warehouse` | Plain-English question → read-only SQL on your BigQuery marts |
+
+`load_pdf_to_bigquery` is disabled by default; enable with `BANK_MCP_ENABLE_BQ_LOAD=true`.
+
+**Claude Code (direct):**
+```bash
+claude mcp add -s user \
+  -e GEMINI_API_KEY=your-key \
+  -e GCP_PROJECT=your-project \
+  -e BQ_LOCATION=asia-south1 \
+  bank-statement \
+  -- /path/to/bsa-venv/bin/python /path/to/Bank-Statement-Analyser/mcp_server.py
+```
+
+**OpenClaw (any AI client — ChatGPT, Gemini, Telegram bots):**
+```bash
+openclaw mcp set bank-statement '{"command":"/path/to/bsa-venv/bin/python","args":["/path/to/mcp_server.py"],"env":{"GEMINI_API_KEY":"your-key","GCP_PROJECT":"your-project","BQ_LOCATION":"asia-south1"}}'
+openclaw mcp probe   # → bank-statement: 3 tools ✔
+```
+
+See the [Usage Guide](https://aravindhraja123.github.io/Bank-Statement-Analyser/usage.html#mcp) for the full setup walkthrough.
+
+---
+
 ## 🚀 Quick Start (Script only — no automation)
 ```bash
 pip install -r requirements.txt
 ```
 
-Place your HDFC PDF in the folder and run (defaults to `Account Statement.pdf`
-if no path is given):
+Place your PDF in the folder and run (bank is auto-detected; defaults to
+`Account Statement.pdf` if no path is given):
 ```bash
 python Bank_Statement_Analyser.py "your statement.pdf"
 ```
@@ -274,6 +309,7 @@ google-cloud-bigquery>=3.0.0   # load_to_bigquery.py
 pytest>=8.0.0                  # test suite
 anthropic                      # AI features (ai/) — Claude path (ANTHROPIC_API_KEY)
 google-genai                   # AI features (ai/) — free Gemini path (GEMINI_API_KEY)
+mcp                            # MCP server (mcp_server.py) — FastMCP stdio transport
 ```
 > `dbt-bigquery` is installed in a separate Python 3.12 venv, not via this file
 > — see [`airflow/README.md`](airflow/README.md).
@@ -364,11 +400,17 @@ After editing, re-run `dbt seed` (and `dbt build`) to refresh the warehouse.
 
 ## 🏦 Compatibility
 
-Tested on HDFC Bank savings account statements (text-based PDF).
+| Bank | Detection | Transactions | Notes |
+|---|---|---|---|
+| HDFC | Name in PDF | ✅ | Full support |
+| CUB (City Union Bank) | Name in PDF | ✅ | Full support |
+| IOB (Indian Overseas Bank) | Column headers | ✅ | Narrations may be partial |
+| PNB (Punjab National Bank) | Column headers | ✅ | Full support |
+| SBI (State Bank of India) | Tab-encoding artefact | ✅ | Full support |
 
-> ⚠️ Scanned PDFs will not work. The PDF must be text-based — if you can select and copy text from it, it will work. If not, it is a scanned image and needs OCR first.
+> ⚠️ **Scanned PDFs will not work.** The PDF must be text-based — if you can select and copy text from it, it will work. Scanned images need OCR first.
 
-For other banks (SBI, ICICI, Axis), the `HDFC_COLS` coordinate boundaries at the top of the script need to be adjusted to match that bank's column layout.
+> If the bank name is redacted in the PDF, detection falls back to structural column-header markers. Add new banks by defining column x-boundaries in `Bank_Statement_Analyser.py` and registering detection signatures in `BANK_SIGNATURES`.
 
 ---
 
@@ -396,6 +438,9 @@ Bank-Statement-Analyser/
 │   ├── llm.py                     ← provider selector (Claude / Gemini)
 │   ├── ask_statement.py           ← agentic text-to-SQL (tool-use + read-only wall)
 │   └── explain_anomalies.py       ← plain-English reasons for flagged transactions
+├── mcp_server.py                  ← FastMCP stdio server (analyse_pdf, ask_warehouse, project_status)
+├── bank_mcp_tools.py              ← MCP tool implementations with path-allowlist safety
+├── scripts/smoke_test_mcp.py      ← manual MCP protocol end-to-end tester
 ├── airflow/                       ← Airflow DAG for the batch pipeline
 │   ├── dags/bank_statement_pipeline.py
 │   └── README.md

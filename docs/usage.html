@@ -234,15 +234,18 @@
       <div class="sec-head"><div class="sec-idx">0</div>
         <div><div class="kicker">Start here</div><h2>What is this project?</h2></div></div>
       <div class="sec-body">
-        <p>You drop in a bank-statement PDF. The project reads every transaction, cleans it, labels it
-          (food, transport, salary…), and flags unusually large spends. From there it does two things:</p>
+        <p>You drop in a bank-statement PDF. The bank is auto-detected (HDFC, CUB, IOB, PNB, SBI).
+          The project reads every transaction, cleans it, labels it
+          (food, transport, salary…), and flags unusually large spends. From there it does three things:</p>
         <ul>
           <li><strong>Path A — instant report:</strong> a tidy <strong>Excel report</strong>, automated with n8n.</li>
           <li><strong>Path B — analytics warehouse:</strong> transactions in <strong>BigQuery</strong>, modelled with
             <strong>dbt</strong>, shown in a <strong>dashboard</strong>, and queryable in <strong>plain English</strong>.</li>
+          <li><strong>Path C — MCP server:</strong> exposes <code>analyse_pdf</code>, <code>ask_warehouse</code>, and
+            <code>project_status</code> as native tools for Claude Code, OpenClaw, or any MCP-compatible AI client.</li>
         </ul>
         <div class="callout tip"><span class="lab">Tip</span>
-          <p>You don't need all of it. Just want the Excel report? Do steps 2, 3, A. Want the warehouse + AI? Do 2, 3, C, F.</p></div>
+          <p>You don't need all of it. Just want the Excel report? Do steps 2, 3, A. Want the warehouse + AI? Do 2, 3, C, F. Want MCP tools? See section G.</p></div>
       </div>
     </section>
 
@@ -279,7 +282,7 @@
           <tr><td><strong>Python 3.12 venv</strong></td><td>dbt</td><td>dbt runs in its own venv, e.g. <code>~/dbt-venv</code>.</td></tr>
           <tr><td><strong>Google Cloud SDK</strong> + GCP project</td><td>BigQuery (Path B)</td><td>With <strong>billing enabled</strong> (needed for dbt incremental).</td></tr>
           <tr><td><strong>Node.js 18+</strong></td><td>n8n (Path A)</td><td>Only if you want the automation.</td></tr>
-          <tr><td>A text-based HDFC PDF</td><td>input</td><td>Selectable text, not a scanned image.</td></tr>
+          <tr><td>A text-based PDF (HDFC, CUB, IOB, PNB, or SBI)</td><td>input</td><td>Selectable text, not a scanned image. Bank is auto-detected.</td></tr>
         </table>
         <div class="callout warn"><span class="lab">Never commit financial data</span>
           <p>The repo's <code>.gitignore</code> blocks <code>*.pdf</code>, <code>*.xlsx</code>, <code>*.png</code>. Keep statements and reports out of git.</p></div>

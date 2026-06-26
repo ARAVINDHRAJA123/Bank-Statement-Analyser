@@ -1,10 +1,13 @@
 """
 Bank Statement Analyser
-Tuned for HDFC text-based PDF statements.
+Supports HDFC, CUB, IOB, PNB, SBI text-based PDF statements.
 
-Parses a text-based HDFC statement PDF, enriches each transaction (merchant +
-spending category), runs simple analytics (monthly/category summaries, top
-merchants, anomaly detection) and writes a formatted multi-sheet Excel report.
+Parses a bank statement PDF, enriches each transaction (merchant + spending
+category), runs simple analytics (monthly/category summaries, top merchants,
+anomaly detection) and writes a formatted multi-sheet Excel report.
+
+Bank is auto-detected from the PDF header. Each bank has its own extraction
+strategy (word-based spatial columns or table-based).
 
 CLI:
     python Bank_Statement_Analyser.py [input.pdf] [output.xlsx] [stats.json]
@@ -211,26 +214,388 @@ def _parse_page_words(words) -> tuple[list[dict], bool]:
         rows.append(pending)
     return rows, reached_summary
 
+# ── Bank detection ────────────────────────────────────────────────────────────
+
+BANK_SIGNATURES = {
+    # Name-based (when not redacted)
+    "HDFC": ["HDFC BANK", "HDFC"],
+    "CUB":  ["CITY UNION BANK"],
+    "IOB":  ["INDIAN OVERSEAS BANK"],
+    "PNB":  ["PUNJAB NATIONAL BANK"],
+    "SBI":  ["STATE BANK OF INDIA"],
+    # Format/structural markers (work even when bank name is redacted)
+    "_IOB": ["DEBIT(RS)", "CREDIT(RS)", "DATE(VALUE"],    # IOB column header style
+    "_PNB": ["DR AMOUNT", "CR AMOUNT", "TXN NO."],        # PNB column names
+    "_SBI": ["(CID:9)", "ACCOUNT STATEMENT FROM"],        # SBI tab-encoding artefact
+    "_CUB": ["CITY UNION"],
+}
+
+def detect_bank(pdf_path: str) -> str:
+    """Identify the issuing bank from name or structural markers across all pages."""
+    with pdfplumber.open(pdf_path) as pdf:
+        # Scan up to 2 pages for robustness
+        text = " ".join(
+            (page.extract_text() or "") for page in pdf.pages[:2]
+        ).upper()
+    for bank, sigs in BANK_SIGNATURES.items():
+        real_bank = bank.lstrip("_")   # "_IOB" → "IOB"
+        if any(sig in text for sig in sigs):
+            return real_bank
+    return "UNKNOWN"
+
+# ── CUB (City Union Bank) — word-based ────────────────────────────────────────
+# Each transaction spans 2–3 sub-lines ~5px apart (narration / date+amounts /
+# optional continuation). Transactions are ~26px apart, so grouping lines within
+# 12px merges intra-transaction sub-lines while keeping transactions separate.
+
+CUB_COLS = [
+    ("date",      25,  103),
+    ("narration", 103, 265),
+    ("cheque",    265, 390),
+    ("debit",     390, 470),
+    ("credit",    470, 525),
+    ("balance",   525, 700),
+]
+
+def _extract_cub(pdf) -> list[dict]:
+    rows = []
+    for page in pdf.pages:
+        words = page.extract_words(x_tolerance=3, y_tolerance=3)
+        if not words:
+            continue
+        # Find where the transaction table starts (header row)
+        header_top = None
+        for w in words:
+            if w["text"] == "Date" and w["x0"] < 50:
+                header_top = w["top"]
+                break
+        if header_top is None:
+            # Continuation page — start before first date word in date column
+            for w in sorted(words, key=lambda x: x["top"]):
+                if w["top"] > 50 and is_date(w["text"]) and 25 <= w["x0"] < 103:
+                    header_top = w["top"] - 5
+                    break
+        if header_top is None:
+            continue
+
+        # Build raw line dict: y → list of words
+        raw_lines: dict[float, list] = {}
+        for w in words:
+            if w["top"] <= header_top:
+                continue
+            raw_lines.setdefault(round(w["top"], 1), []).append(w)
+
+        # Merge consecutive sub-lines within 12px into transaction groups
+        sorted_ys = sorted(raw_lines)
+        groups: list[list[float]] = []
+        cur: list[float] = []
+        for y in sorted_ys:
+            if not cur or y - cur[-1] <= 12:
+                cur.append(y)
+            else:
+                groups.append(cur)
+                cur = [y]
+        if cur:
+            groups.append(cur)
+
+        for grp in groups:
+            all_words = []
+            for y in grp:
+                all_words.extend(raw_lines[y])
+
+            buckets: dict[str, list[str]] = {n: [] for n, *_ in CUB_COLS}
+            for w in sorted(all_words, key=lambda x: (x["top"], x["x0"])):
+                for name, x0, x1 in CUB_COLS:
+                    if x0 <= w["x0"] < x1:
+                        buckets[name].append(w["text"])
+                        break
+
+            date_str = " ".join(buckets["date"])
+            narr_str = " ".join(buckets["narration"])
+            dbt_str  = " ".join(buckets["debit"])
+            crd_str  = " ".join(buckets["credit"])
+            bal_str  = " ".join(buckets["balance"])
+
+            date = parse_date(date_str)
+            if not date:
+                continue
+            rows.append({
+                "date":       date,
+                "narration":  narr_str,
+                "ref_no":     " ".join(buckets["cheque"]).replace("-", "").strip(),
+                "value_date": date,
+                "debit":      parse_amount(dbt_str),
+                "credit":     parse_amount(crd_str),
+                "balance":    parse_amount(bal_str),
+            })
+    return rows
+
+# ── IOB (Indian Overseas Bank) — word-based ────────────────────────────────────
+# Standard row-per-line layout. Debit and credit columns identified by x-range;
+# "-" placeholder in the empty column parses as 0.0 automatically.
+
+IOB_COLS = [
+    ("date",      44, 112),
+    ("narration", 112, 278),
+    ("ref",       278, 343),
+    ("type",      343, 408),
+    ("debit",     408, 462),
+    ("credit",    462, 510),
+    ("balance",   510, 700),
+]
+
+IOB_STOP_MARKERS = ("AVAILABLEBALANCE", "COMPUTERGENERATEDSTATEMENT", "DOESNOTREQUIRE")
+
+def _extract_iob(pdf) -> list[dict]:
+    rows = []
+    for page in pdf.pages:
+        words = page.extract_words(x_tolerance=3, y_tolerance=3)
+        if not words:
+            continue
+        # Find header — IOB uses "Date(Value" (not plain "Date") at x≈49
+        header_top = None
+        for w in words:
+            if "Date" in w["text"] and w["x0"] < 60 and w["top"] > 200:
+                header_top = w["top"]
+                break
+        if header_top is None:
+            continue
+
+        raw_lines: dict[float, list] = {}
+        for w in words:
+            if w["top"] <= header_top:
+                continue
+            raw_lines.setdefault(round(w["top"], 1), []).append(w)
+
+        # IOB: intra-transaction y-span ≈10px, inter-transaction gap ≈14px
+        # Merge sub-lines within 10px so date+amounts land in the same group
+        sorted_ys = sorted(raw_lines)
+        groups: list[list[float]] = []
+        cur: list[float] = []
+        for y in sorted_ys:
+            if not cur or y - cur[-1] <= 10:
+                cur.append(y)
+            else:
+                groups.append(cur)
+                cur = [y]
+        if cur:
+            groups.append(cur)
+
+        for grp in groups:
+            all_words = []
+            for y in grp:
+                all_words.extend(raw_lines[y])
+
+            joined = "".join(w["text"] for w in all_words).upper()
+            if any(m in joined for m in IOB_STOP_MARKERS):
+                break
+
+            buckets: dict[str, list[str]] = {n: [] for n, *_ in IOB_COLS}
+            for w in sorted(all_words, key=lambda x: (x["top"], x["x0"])):
+                for name, x0, x1 in IOB_COLS:
+                    if x0 <= w["x0"] < x1:
+                        buckets[name].append(w["text"])
+                        break
+
+            # First parseable date wins (echo "(01-Nov-25)" comes second, is skipped)
+            date = None
+            for tok in buckets["date"]:
+                date = parse_date(tok.strip("()"))
+                if date:
+                    break
+            if not date:
+                continue
+
+            narr_str = " ".join(t for t in buckets["narration"] if t)
+            dbt_str  = " ".join(d for d in buckets["debit"]  if d != "-")
+            crd_str  = " ".join(c for c in buckets["credit"] if c != "-")
+            bal_str  = " ".join(buckets["balance"])
+
+            rows.append({
+                "date":       date,
+                "narration":  narr_str,
+                "ref_no":     " ".join(buckets["ref"]),
+                "value_date": date,
+                "debit":      parse_amount(dbt_str),
+                "credit":     parse_amount(crd_str),
+                "balance":    parse_amount(bal_str),
+            })
+    return rows
+
+# ── PNB (Punjab National Bank) — table-based ──────────────────────────────────
+# pdfplumber table extraction works cleanly for PNB. Balance field has a
+# "Cr." / "Dr." suffix and may contain a newline before the suffix.
+
+def _extract_pnb(pdf) -> list[dict]:
+    rows = []
+    header_seen = False
+    for page in pdf.pages:
+        tables = page.extract_tables()
+        for table in tables:
+            for row in table:
+                if not row or len(row) < 7:
+                    continue
+                # Skip the header row itself
+                if row[0] and "Txn" in str(row[0]) and "No" in str(row[0]):
+                    header_seen = True
+                    continue
+                txn_no, txn_date, desc, _branch, _cheque, dr_raw, cr_raw, bal_raw = (
+                    (row + [""] * 8)[:8]
+                )
+                date = parse_date((txn_date or "").strip())
+                if not date:
+                    continue
+                # Balance: remove "Cr." / "Dr." suffix and embedded newlines
+                bal_clean = re.sub(r"[^\d,.]", "", (bal_raw or "").replace("\n", " ")).rstrip(".")
+                rows.append({
+                    "date":       date,
+                    "narration":  (desc or "").replace("\n", " ").strip(),
+                    "ref_no":     (txn_no or "").strip(),
+                    "value_date": date,
+                    "debit":      parse_amount(dr_raw),
+                    "credit":     parse_amount(cr_raw),
+                    "balance":    parse_amount(bal_clean),
+                })
+    _ = header_seen  # suppress unused-variable warning
+    return rows
+
+# ── SBI (State Bank of India) — word-based ────────────────────────────────────
+# SBI splits date across two y-positions when the day is two digits
+# ("15 May" on line 1, "2025" on line 2, 9px lower). Grouping lines within
+# 14px merges the year with its date while keeping separate transactions apart
+# (inter-transaction gap ~31px).
+
+SBI_COLS = [
+    ("txn_date",  30,  95),
+    ("val_date",  95, 143),
+    ("narration", 143, 275),
+    ("ref",       275, 379),
+    ("debit",     379, 448),
+    ("credit",    448, 509),
+    ("balance",   509, 700),
+]
+
+SBI_STOP_MARKERS = ("OPENINGBALANCE", "CLOSINGBALANCE", "TOTALDEBIT", "TOTALCREDIT")
+
+def _extract_sbi(pdf) -> list[dict]:
+    rows = []
+    for page in pdf.pages:
+        words = page.extract_words(x_tolerance=3, y_tolerance=3)
+        if not words:
+            continue
+        # Locate header: look for "Txn" and "Date" close together
+        header_top = None
+        for w in words:
+            if w["text"] == "Txn" and w["x0"] < 60:
+                header_top = w["top"]
+                break
+        if header_top is None:
+            # Continuation page: start above first date candidate in txn_date column
+            for w in sorted(words, key=lambda x: x["top"]):
+                if w["top"] > 30 and w["x0"] < 95 and re.match(r"^\d{1,2}$", w["text"]):
+                    header_top = w["top"] - 5
+                    break
+        if header_top is None:
+            continue
+
+        raw_lines: dict[float, list] = {}
+        for w in words:
+            if w["top"] <= header_top:
+                continue
+            raw_lines.setdefault(round(w["top"], 1), []).append(w)
+
+        # Merge sub-lines within 11px: intra-row gap=9px ≤11, inter-row gap=13px >11
+        sorted_ys = sorted(raw_lines)
+        groups: list[list[float]] = []
+        cur: list[float] = []
+        for y in sorted_ys:
+            if not cur or y - cur[-1] <= 11:
+                cur.append(y)
+            else:
+                groups.append(cur)
+                cur = [y]
+        if cur:
+            groups.append(cur)
+
+        pending = None
+        for grp in groups:
+            all_words = []
+            for y in grp:
+                all_words.extend(raw_lines[y])
+
+            joined = "".join(w["text"] for w in all_words).upper()
+            if any(m in joined for m in SBI_STOP_MARKERS):
+                break
+
+            buckets: dict[str, list[str]] = {n: [] for n, *_ in SBI_COLS}
+            for w in sorted(all_words, key=lambda x: (x["top"], x["x0"])):
+                for name, x0, x1 in SBI_COLS:
+                    if x0 <= w["x0"] < x1:
+                        buckets[name].append(w["text"])
+                        break
+
+            date_str = " ".join(buckets["txn_date"])
+            vdt_str  = " ".join(buckets["val_date"])
+            narr_str = " ".join(buckets["narration"])
+            dbt_str  = " ".join(buckets["debit"])
+            crd_str  = " ".join(buckets["credit"])
+            bal_str  = " ".join(buckets["balance"])
+
+            date = parse_date(date_str)
+            if date:
+                if pending:
+                    rows.append(pending)
+                pending = {
+                    "date":       date,
+                    "narration":  narr_str,
+                    "ref_no":     " ".join(buckets["ref"]),
+                    "value_date": parse_date(vdt_str) or date,
+                    "debit":      parse_amount(dbt_str),
+                    "credit":     parse_amount(crd_str),
+                    "balance":    parse_amount(bal_str),
+                }
+            elif pending:
+                if narr_str:
+                    pending["narration"] += " " + narr_str
+                if not pending["balance"] and bal_str:
+                    pending["balance"] = parse_amount(bal_str)
+
+        if pending:
+            rows.append(pending)
+    return rows
+
+# ── Dispatcher ────────────────────────────────────────────────────────────────
+
 def extract_transactions(pdf_path: str) -> list[dict]:
     """
-    Spatial extraction using known HDFC column x-positions.
-    Groups words by row (y coordinate), assigns to columns, reconstructs
-    multi-line narrations, and stops at the statement summary block.
+    Auto-detect the bank and extract transactions using the appropriate parser.
+    Supports HDFC (word/spatial), CUB (word/spatial), IOB (word/spatial),
+    PNB (table-based), SBI (word/spatial).
     """
-    all_rows: list[dict] = []
+    bank = detect_bank(pdf_path)
     with pdfplumber.open(pdf_path) as pdf:
+        if bank == "CUB":
+            return _extract_cub(pdf)
+        if bank == "IOB":
+            return _extract_iob(pdf)
+        if bank == "PNB":
+            return _extract_pnb(pdf)
+        if bank == "SBI":
+            return _extract_sbi(pdf)
+        # Default: HDFC (or UNKNOWN — try HDFC spatial layout)
+        all_rows: list[dict] = []
         for page in pdf.pages:
             words = page.extract_words(x_tolerance=3, y_tolerance=3)
             if not words:
                 continue
             page_rows, _ = _parse_page_words(words)
             all_rows.extend(page_rows)
-    return all_rows
+        return all_rows
 
 # ── Enrichment ────────────────────────────────────────────────────────────────
 
 def extract_merchant(narration: str) -> str:
-    """Pull a clean merchant name from HDFC UPI / POS narration strings."""
+    """Pull a clean merchant name from UPI / POS / NEFT narration strings."""
     text = narration.strip()
 
     # UPI pattern: UPI-MERCHANTNAME-...
@@ -383,7 +748,7 @@ def write_summary(wb, stats):
     ws.column_dimensions["A"].width = 26
     ws.column_dimensions["B"].width = 20
 
-    t = ws.cell(row=1, column=1, value="HDFC Bank Statement — Analysis")
+    t = ws.cell(row=1, column=1, value="Bank Statement — Analysis")
     t.font = Font(name="Arial", bold=True, size=14, color=C_BLUE)
     ws.merge_cells("A1:B1")
 
@@ -656,7 +1021,7 @@ def main():
     stats_path = sys.argv[3] if len(sys.argv) > 3 else None
 
     if not os.path.exists(pdf):
-        print(f"ERROR: '{pdf}' not found. Place your HDFC PDF here.")
+        print(f"ERROR: '{pdf}' not found. Place your PDF here.")
         sys.exit(1)
 
     print(f"\n[1/2] Analysing '{pdf}'…")
