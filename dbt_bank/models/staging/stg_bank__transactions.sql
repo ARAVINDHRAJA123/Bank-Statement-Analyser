@@ -48,6 +48,9 @@ cleaned as (
             upper(narration)
         ))                                             as merchant,
 
+        coalesce(bank_name, 'UNKNOWN')              as bank_name,
+        statement_period_start,
+        statement_period_end,
         _loaded_at
     from deduped
     where _rn = 1
