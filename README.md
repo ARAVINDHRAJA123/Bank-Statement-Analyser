@@ -224,6 +224,12 @@ You can ask it three ways: the **CLI** above, a **web UI** (run `python server.p
 and open **http://localhost:5050/**), or the **`POST /ask`** HTTP endpoint (for
 n8n / other apps). The endpoint degrades gracefully if the AI deps/key are absent.
 
+**Offline mode** — no BigQuery connection needed. Pass `--pdf` to answer directly
+from a parsed statement (single LLM call, no SQL):
+```bash
+python ai/ask_statement.py "what is my top spending category?" --pdf "statement.pdf"
+```
+
 **2. Anomaly explainer — batch enrichment** ([`ai/explain_anomalies.py`](ai/explain_anomalies.py)).
 Turns each flagged transaction into a one-sentence plain-English reason:
 ```bash

@@ -384,11 +384,18 @@ dbt build          <span class="cm"># seeds + models + tests (fct is incremental
       <div class="sec-head"><div class="sec-idx">D</div>
         <div><div class="kicker">Use it · Path B</div><h2>Airflow (run on a schedule)</h2></div></div>
       <div class="sec-body">
-        <p>The DAG (<code>airflow/dags/bank_statement_pipeline.py</code>) chains: ingest → load → dbt build → notify.</p>
+        <p>The DAG (<code>airflow/dags/bank_statement_pipeline.py</code>) runs 5 steps in sequence:</p>
+        <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">pipeline</span></div>
+<pre>ingest_pdf  →  load_to_bigquery  →  dbt_build  →  explain_anomalies  →  notify</pre></div>
+        <p style="margin-top:12px">The <code>explain_anomalies</code> step runs the AI explainer after dbt
+          and writes plain-English reasons for flagged transactions to BigQuery.
+          It skips gracefully if no LLM key is set.</p>
+        <p style="margin-top:8px">Local UI: <code>cd airflow/astro &amp;&amp; astro dev start</code> →
+          <a href="http://astro.localhost:6563" target="_blank" rel="noopener">astro.localhost:6563</a>
+          (admin / admin). Requires Docker.</p>
         <div class="callout tip"><span class="lab">You usually don't need it to run</span>
           <p>The DAG just automates the commands in section C — run them by hand and you've done the same thing.
-            Airflow doesn't run natively on Windows (needs WSL2 or Docker, often blocked on corporate machines).
-            See <code>airflow/README.md</code>.</p></div>
+            See <code>airflow/README.md</code> for Cloud Composer and Astro CLI setup.</p></div>
       </div>
     </section>
 
@@ -427,14 +434,17 @@ $env:GCP_PROJECT="n8n-upi-tracker"; $env:BQ_LOCATION="asia-south1"</pre></div></
         <div class="callout tip"><span class="lab">Prefer Claude?</span>
           <p>Set <code>ANTHROPIC_API_KEY</code> instead (<code>pip install anthropic</code>). Auto-detected; everything else is identical.</p></div>
 
-        <h3>Three ways to ask</h3>
+        <h3>Four ways to ask</h3>
         <ol class="steps">
           <li><div><strong>Web UI</strong> — start the server, open the page:
             <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
 <pre>python server.py            <span class="cm"># then open http://localhost:5050/</span></pre></div></div></li>
-          <li><div><strong>Command line:</strong>
+          <li><div><strong>Command line (warehouse):</strong> queries BigQuery live.
             <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
 <pre>python ai/ask_statement.py "how much did I spend on food, by month?"</pre></div></div></li>
+          <li><div><strong>Command line (offline)</strong> — no BigQuery needed, answers directly from a PDF:
+            <div class="cmd"><div class="bar"><i></i><i></i><i></i><span class="t">bash</span></div>
+<pre>python ai/ask_statement.py "what is my top category?" --pdf "statement.pdf"</pre></div></div></li>
           <li><div><strong>HTTP endpoint</strong> (for n8n / apps): <code>POST /ask</code> with <code>{"question": "..."}</code>.</div></li>
         </ol>
 

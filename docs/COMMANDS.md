@@ -91,10 +91,13 @@ deactivate                # leave the venv when done
 # A) Web chat UI
 python server.py                                  # then open http://localhost:5050/
 
-# B) Command line — ask a question
+# B) Command line — ask against BigQuery warehouse
 python ai\ask_statement.py "how much did I spend on food, by month?"
 
-# C) Explain the flagged anomalies
+# C) Offline mode — answer from PDF directly, no BigQuery needed
+python ai\ask_statement.py "what is my top category?" --pdf "statement.pdf"
+
+# D) Explain the flagged anomalies
 python ai\explain_anomalies.py                    # print plain-English reasons
 python ai\explain_anomalies.py --write            # also save to BigQuery
 
