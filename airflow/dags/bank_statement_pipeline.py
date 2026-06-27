@@ -3,7 +3,7 @@ Bank Statement — batch analytics pipeline (Airflow / Cloud Composer).
 
 This DAG owns the *batch / warehouse* side of the project (Path B):
 
-    ingest PDF  ->  load_to_bigquery  ->  dbt build  ->  notify
+    ingest PDF  ->  load_to_bigquery  ->  dbt build  ->  explain_anomalies  ->  notify
 
 It is deliberately separate from the n8n workflow, which owns the *real-time*
 side (Path A: Google Drive -> Flask /analyse -> Excel report -> Telegram/Email).
@@ -22,6 +22,8 @@ same way the CLI does):
     dbt_project_dir      -> DBT_PROJECT_DIR  (defaults to <repo_dir>/dbt_bank)
     python_executable    -> PYTHON_EXECUTABLE (interpreter for the loader)
     dbt_executable       -> DBT_EXECUTABLE   (dbt binary, e.g. the 3.12 venv's)
+    gemini_api_key       -> GEMINI_API_KEY   (free; for the anomaly-explainer step)
+    anthropic_api_key    -> ANTHROPIC_API_KEY (paid alternative for the explainer)
     statements_gcs_bucket / statements_gcs_prefix
                          -> where new statement PDFs land (Cloud Composer).
                             Omit to run against a local file instead.
@@ -62,14 +64,18 @@ GCS_PREFIX = cfg("statements_gcs_prefix", "STATEMENTS_GCS_PREFIX", "statements/"
 # accepts a JSON POST: an n8n Webhook node URL, or a Slack incoming webhook
 # (both consume {"text": "..."}). Leave unset to make notify a no-op.
 NOTIFY_WEBHOOK_URL = cfg("notify_webhook_url", "NOTIFY_WEBHOOK_URL")
+GEMINI_API_KEY     = cfg("gemini_api_key",     "GEMINI_API_KEY")
+ANTHROPIC_API_KEY  = cfg("anthropic_api_key",  "ANTHROPIC_API_KEY")
 
 # Environment passed to the shell tasks so the loader and dbt see the same
 # project/region/profile as a local run.
 PIPELINE_ENV = {
     **os.environ,
-    "GCP_PROJECT": GCP_PROJECT or "",
-    "BQ_LOCATION": BQ_LOCATION or "",
-    "PYTHONIOENCODING": "utf-8",
+    "GCP_PROJECT":       GCP_PROJECT       or "",
+    "BQ_LOCATION":       BQ_LOCATION       or "",
+    "GEMINI_API_KEY":    GEMINI_API_KEY    or "",
+    "ANTHROPIC_API_KEY": ANTHROPIC_API_KEY or "",
+    "PYTHONIOENCODING":  "utf-8",
 }
 
 
@@ -184,6 +190,19 @@ with DAG(
         append_env=False,
     )
 
+    # Generate plain-English explanations for anomaly-flagged transactions and
+    # write them to analytics.anomaly_explanations in BigQuery.
+    # Requires GEMINI_API_KEY or ANTHROPIC_API_KEY; skipped gracefully if absent.
+    explain = BashOperator(
+        task_id="explain_anomalies",
+        bash_command=(
+            f'cd "{REPO_DIR}" && '
+            f'"{PYTHON_EXECUTABLE}" ai/explain_anomalies.py --write || true'
+        ),
+        env=PIPELINE_ENV,
+        append_env=False,
+    )
+
     # Ping a webhook (n8n Webhook node or Slack incoming webhook) on success.
     # No-op if notify_webhook_url is unset, so the DAG runs out of the box.
     notify_task = PythonOperator(
@@ -191,4 +210,4 @@ with DAG(
         python_callable=notify,
     )
 
-    ingest >> load >> dbt_build >> notify_task
+    ingest >> load >> dbt_build >> explain >> notify_task

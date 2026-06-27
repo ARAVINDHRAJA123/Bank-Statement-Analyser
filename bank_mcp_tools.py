@@ -180,11 +180,12 @@ def load_pdf_to_bigquery(ctx: ToolContext, pdf_path: str) -> dict[str, Any]:
 
     from google.cloud import bigquery
     from load_to_bigquery import DATASET, LOCATION, PROJECT, SCHEMA, TABLE, to_bq_rows
-    from Bank_Statement_Analyser import clean_and_enrich, extract_transactions
+    from Bank_Statement_Analyser import detect_bank, clean_and_enrich, extract_transactions
 
     if not PROJECT:
         raise ToolError("GCP_PROJECT is not set.")
 
+    bank = detect_bank(str(pdf))
     rows = clean_and_enrich(extract_transactions(str(pdf)))
     if not rows:
         raise ToolError("No transactions found. Is the PDF text-based (not scanned)?")
@@ -199,7 +200,7 @@ def load_pdf_to_bigquery(ctx: ToolContext, pdf_path: str) -> dict[str, Any]:
         schema=SCHEMA,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
     )
-    job = client.load_table_from_json(to_bq_rows(rows), table_id, job_config=job_config)
+    job = client.load_table_from_json(to_bq_rows(rows, bank), table_id, job_config=job_config)
     job.result()
     table = client.get_table(table_id)
     return {

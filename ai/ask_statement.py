@@ -203,9 +203,93 @@ def _ask_gemini(question, verbose, sqls, model):
     return "Stopped after too many steps without a final answer."
 
 
-def ask(question: str, verbose: bool = False, model: str | None = None, return_sql: bool = False):
+def _ask_offline(question: str, pdf_path: str, model: str | None, verbose: bool) -> str:
+    """Offline fallback: answer from a parsed PDF when BigQuery is unavailable.
+
+    The question and the full in-memory analytics result are sent to the LLM
+    in a single prompt — no tool-use loop, no BigQuery connection needed.
+    Works on Gemini (free) or Claude.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from Bank_Statement_Analyser import (
+        analyse, detect_bank, monthly_summary, category_summary,
+        top_merchants, detect_anomalies, clean_and_enrich, extract_transactions,
+    )
+    import tempfile
+
+    if verbose:
+        print(f"[offline] Parsing {pdf_path}…", file=sys.stderr)
+
+    bank  = detect_bank(pdf_path)
+    rows  = clean_and_enrich(extract_transactions(pdf_path))
+    if not rows:
+        return "No transactions found in the PDF."
+
+    dates  = [r["date"] for r in rows]
+    stats  = {
+        "bank":          bank,
+        "period":        f"{min(dates)} to {max(dates)}",
+        "transactions":  len(rows),
+        "total_debit":   sum(r["debit"]  for r in rows),
+        "total_credit":  sum(r["credit"] for r in rows),
+        "monthly":       monthly_summary(rows),
+        "categories":    category_summary(rows),
+        "top_merchants": top_merchants(rows),
+        "anomalies":     [
+            {"date": str(r["date"]), "narration": r["narration"],
+             "debit": r["debit"], "merchant": r["merchant"]}
+            for r in rows if r.get("is_anomaly")
+        ],
+    }
+
+    prompt = (
+        f"You are a bank-statement analytics assistant. The user asked:\n\n"
+        f"{question}\n\n"
+        f"Here is the full analytics summary of their statement (JSON):\n\n"
+        f"{json.dumps(stats, default=str, indent=2)}\n\n"
+        "Answer the question in plain English using only the data above. "
+        "Lead with the number(s). Keep it concise. Amounts are in INR."
+    )
+
+    provider = get_provider()
+    if provider == "anthropic":
+        import anthropic
+        resp = anthropic.Anthropic().messages.create(
+            model=model or ANTHROPIC_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+    elif provider == "gemini":
+        from google import genai
+        client = genai.Client(api_key=gemini_api_key())
+        resp = client.models.generate_content(model=model or GEMINI_MODEL, contents=prompt)
+        return (resp.text or "").strip()
+    raise RuntimeError(NO_KEY_MESSAGE)
+
+
+def ask(
+    question: str,
+    verbose: bool = False,
+    model: str | None = None,
+    return_sql: bool = False,
+    pdf_path: str | None = None,
+):
     """Run the agentic loop on whichever provider has a key set.
-    Returns the answer string, or {"answer", "sql"} when return_sql=True."""
+
+    When BigQuery is unavailable (GCP_PROJECT not set or BQ unreachable) and
+    pdf_path is provided, falls back to offline mode — answers from the parsed
+    PDF without any SQL or cloud connection.
+
+    Returns the answer string, or {"answer", "sql"} when return_sql=True.
+    """
+    # Offline fallback: no BQ project set but a PDF is available
+    if not PROJECT and pdf_path:
+        if verbose:
+            print("[offline mode] GCP_PROJECT not set — answering from PDF directly.", file=sys.stderr)
+        answer = _ask_offline(question, pdf_path, model, verbose)
+        return {"answer": answer, "sql": []} if return_sql else answer
+
     provider = get_provider()
     sqls: list[str] = []
     if provider == "anthropic":
@@ -218,10 +302,13 @@ def ask(question: str, verbose: bool = False, model: str | None = None, return_s
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print('Usage: python ai/ask_statement.py "your question"')
-        sys.exit(1)
-    print(ask(" ".join(sys.argv[1:]), verbose=True))
+    import argparse
+    parser = argparse.ArgumentParser(description="Ask a question about your bank statement.")
+    parser.add_argument("question", nargs="+", help="Plain-English question")
+    parser.add_argument("--pdf", help="PDF path for offline mode (when BigQuery is unavailable)")
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args()
+    print(ask(" ".join(args.question), verbose=args.verbose, pdf_path=args.pdf))
 
 
 if __name__ == "__main__":
