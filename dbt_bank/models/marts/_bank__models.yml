@@ -30,6 +30,12 @@ models:
                   - 'Salary / Income'
                   - 'Other Income'
                   - 'Other Expense'
+      - name: bank_name
+        description: Issuing bank (HDFC, CUB, IOB, PNB, SBI).
+      - name: statement_period_start
+        description: Earliest transaction date in the source statement.
+      - name: statement_period_end
+        description: Latest transaction date in the source statement.
       - name: is_anomaly
         data_tests:
           - not_null

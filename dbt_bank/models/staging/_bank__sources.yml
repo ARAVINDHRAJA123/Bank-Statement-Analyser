@@ -10,7 +10,7 @@ sources:
       straight to Excel). One row per parsed transaction, append-only.
     tables:
       - name: bank_transactions
-        description: Parsed HDFC statement rows, as extracted from the PDF.
+        description: Parsed bank statement rows (HDFC, CUB, IOB, PNB, SBI), as extracted from the PDF.
         config:
           loaded_at_field: _loaded_at
           freshness:
@@ -30,5 +30,11 @@ sources:
             description: Credit amount (0 if none).
           - name: balance
             description: Running balance after the transaction.
+          - name: bank_name
+            description: Issuing bank (HDFC, CUB, IOB, PNB, SBI) — auto-detected from the PDF.
+          - name: statement_period_start
+            description: Earliest transaction date in the loaded statement.
+          - name: statement_period_end
+            description: Latest transaction date in the loaded statement.
           - name: _loaded_at
             description: Ingestion timestamp.
