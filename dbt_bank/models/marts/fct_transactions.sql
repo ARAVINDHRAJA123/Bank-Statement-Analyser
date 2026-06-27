@@ -45,6 +45,9 @@ final as (
         t.credit_amount,
         t.balance,
         t.category,
+        t.bank_name,
+        t.statement_period_start,
+        t.statement_period_end,
         -- foreign keys into the dimensions (star schema). Descriptive columns
         -- above are kept too, for BI convenience and backward compatibility.
         {{ surrogate_key(['t.merchant']) }}  as merchant_key,
